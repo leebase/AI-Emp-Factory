@@ -25,9 +25,12 @@ precondition is met. It does not install anything, and neither does this reposit
 
 ## Start here
 
-Open a session with the working directory set to `chief/`:
+Open a session with the working directory set to **the distribution root** — not
+`chief/`. The Chief's permission policy is root-relative and the enforcement
+surface lives at `.claude/` in the root, so a session opened inside `chief/`
+loads no policy and cannot reach `bin/lee-llm-router`:
 
-    cd chief
+    cd AI-Emp-Factory
 
 That session is your Chief of Staff. State what you want done; it decides how, gets it
 done through the governed route, checks the result on evidence, and tells you what it
@@ -69,6 +72,6 @@ relocation tokens unresolved, so the tree works from wherever you cloned it.
 | `stage-workers` | `/home/lee/projects/auto-orch` | `8f40e2ba2a9081a257a1769fa52f61815203fc86` | 4 |
 | `rate-table` | `/home/lee/projects/agent-orch` | `fbedba033dc79e91e0698b5c8a788c85e5b1be2d` | 1 |
 
-Built 2026-09-17T18:51:43Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
+Built 2026-09-17T18:55:57Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
 `user/` is owned by the user: the builder seeds it only when it is absent and
 never overwrites anything inside it.
