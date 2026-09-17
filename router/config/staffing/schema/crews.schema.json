@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/crews.schema.json",
+  "title": "Named crew catalog",
+  "description": "Top-level catalog of saved staffing blocks (named crews). Every crew carries a required `kind` discriminator with exactly two conditional shapes, encoded as JSON Schema `if/then` (Chief round 9, D86/D87): `interactive` crews carry a supervisor route, worker routes per role, a reviewer route, and a nonempty escalation ladder, exactly as this schema has always required; `governed` crews reference the Auto-Orch crew by name (`source: auto-orch/crews.yaml`, `crew_name`), carry `supervisor: {kind: engine, owner: auto-orch}` instead of a route, map the recorded stages and the governed `primary`/`reviewer`/`judge` role names to routes through `worker_routes`, and record `escalation: not-recorded` as the explicit absence of a ladder — no supervisor route or identity ladder is ever invented for a governed crew. The reserved `auto` placeholder is `kind: interactive`, `authority: policy`, with its route-bearing fields unset and marked `computed`. Route references are opaque catalog ids resolved against the route catalog; this schema defines shape only and encodes no selection, ranking, probability, class metadata, or model preference. The authority value `policy` is reserved for the computed `auto` placeholder saved block and means the staffing system's choice.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["crews"],
+  "properties": {
+    "crews": {
+      "description": "Saved staffing blocks. Each crew has a stable crew_id and a required `kind` of `interactive` or `governed`; crew_id `auto` is the single reserved placeholder id and pairs only with authority `policy`.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/crew" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "routeRef": {
+      "description": "Opaque reference to a route_id in the route catalog. Shape only: never resolved or interpreted here.",
+      "$ref": "#/$defs/nonemptyString"
+    },
+    "roleKey": {
+      "description": "Role name keying a worker route binding.",
+      "type": "string",
+      "minLength": 1
+    },
+    "crew": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crew_id", "kind", "authority", "evidence_ref"],
+      "properties": {
+        "crew_id": {
+          "description": "Stable identifier for this saved staffing block. The reserved id `auto` marks the computed placeholder block and requires authority `policy`.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "kind": {
+          "description": "Required discriminator. `interactive`: a human-supervised crew with a real supervisor route, per-role worker routes, a reviewer route, and a nonempty escalation ladder. `governed`: a crew referenced from the Auto-Orch crew catalog whose supervisor is the Auto-Orch loop plus the agent-orch engine, never a model route.",
+          "type": "string",
+          "enum": ["interactive", "governed"]
+        },
+        "supervisor_route": {
+          "description": "Interactive crews only. Opaque route catalog id used for the supervisor role. A governed crew must never carry this field: its supervisor is the engine, not a model route.",
+          "$ref": "#/$defs/routeRef"
+        },
+        "worker_routes": {
+          "description": "Worker routes keyed by role. Each role binds exactly one nonempty, duplicate-free, order-significant list of opaque route references; the list order is the role's route preference order. A single route must still be encoded as a one-element array. For interactive crews the keys are the crew's roles; for governed crews the keys carry the recorded Auto-Orch stage bindings plus the governed `primary`/`reviewer`/`judge` role names that have a recorded route.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/roleKey" },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/routeRef" }
+          }
+        },
+        "reviewer_route": {
+          "description": "Interactive crews only. Opaque route catalog id used for the reviewer role. A governed crew maps its governed reviewer through `worker_routes` instead.",
+          "$ref": "#/$defs/routeRef"
+        },
+        "escalation_ladder": {
+          "description": "Interactive crews only. Ordered, nonempty escalation ladder of opaque route catalog ids. Array order is the ladder order. A governed crew must never carry this field: it records `escalation: not-recorded` instead of an invented one-rung identity ladder.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/routeRef" }
+        },
+        "source": {
+          "description": "Governed crews only. The Auto-Orch crew catalog the crew is referenced from, fixed by contract.",
+          "const": "auto-orch/crews.yaml"
+        },
+        "crew_name": {
+          "description": "Governed crews only. The referenced crew's name in the Auto-Orch crews.yaml source.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "supervisor": {
+          "description": "Governed crews only. Exactly `{kind: engine, owner: auto-orch}`: the supervisor is the Auto-Orch loop plus the agent-orch engine, not a model route.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "owner"],
+          "properties": {
+            "kind": { "const": "engine" },
+            "owner": { "const": "auto-orch" }
+          }
+        },
+        "escalation": {
+          "description": "Governed crews only. Explicit absence of an escalation ladder; the governed crew resolver never escalates. Never a one-rung identity ladder invented to satisfy a nonempty rule.",
+          "const": "not-recorded"
+        },
+        "computed": {
+          "description": "Reserved for the `auto` placeholder block: marks that its route-bearing fields are unset because the staffing system computes them at run time.",
+          "const": true
+        },
+        "governed_ref": {
+          "description": "Ordinary named interactive crews only. Optional nonempty reference preserved verbatim on the block. Explicitly forbidden on governed crews and on the reserved `auto` placeholder.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "authority": {
+          "description": "Who set this block: `lee` pins or overrides; `chief` chooses under delegated managerial authority; `policy` is reserved for the computed `auto` placeholder and means the staffing system's choice.",
+          "type": "string",
+          "enum": ["lee", "chief", "policy"]
+        },
+        "evidence_ref": {
+          "description": "Nonempty reference to the evidence backing this saved block.",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      },
+      "allOf": [
+        {
+          "description": "Authority `policy` is reserved for the computed placeholder block: it requires crew_id `auto`.",
+          "if": {
+            "properties": { "authority": { "const": "policy" } },
+            "required": ["authority"]
+          },
+          "then": {
+            "properties": { "crew_id": { "const": "auto" } }
+          }
+        },
+        {
+          "description": "crew_id `auto` is the placeholder block: it requires authority `policy`, so a named crew (authority `lee` or `chief`) can never use the `auto` id and the placeholder can never carry `lee` or `chief` authority.",
+          "if": {
+            "properties": { "crew_id": { "const": "auto" } },
+            "required": ["crew_id"]
+          },
+          "then": {
+            "properties": { "authority": { "const": "policy" } }
+          }
+        },
+        {
+          "description": "Interactive special case for the reserved placeholder: crew_id `auto` is `kind: interactive`, `authority: policy`, with its route-bearing fields unset and marked `computed` (Chief round 9). This branch applies only to the reserved id; every other interactive crew keeps today's full route-bearing shape.",
+          "if": {
+            "properties": { "crew_id": { "const": "auto" } },
+            "required": ["crew_id"]
+          },
+          "then": {
+            "properties": {
+              "kind": { "const": "interactive" },
+              "supervisor_route": false,
+              "worker_routes": false,
+              "reviewer_route": false,
+              "escalation_ladder": false,
+              "source": false,
+              "crew_name": false,
+              "supervisor": false,
+              "escalation": false,
+              "governed_ref": false,
+              "computed": { "const": true }
+            },
+            "required": ["computed"]
+          }
+        },
+        {
+          "description": "The `computed` marker is reserved for the `auto` placeholder: it can never appear on a named crew.",
+          "if": {
+            "required": ["computed"]
+          },
+          "then": {
+            "properties": {
+              "crew_id": { "const": "auto" },
+              "kind": { "const": "interactive" },
+              "authority": { "const": "policy" }
+            }
+          }
+        },
+        {
+          "description": "Ordinary interactive crews (any crew_id other than the reserved `auto`) keep today's shape: supervisor route, worker routes per role, reviewer route, and a nonempty escalation ladder are all required, and no governed-only field may appear.",
+          "if": {
+            "properties": {
+              "kind": { "const": "interactive" },
+              "crew_id": { "not": { "const": "auto" } }
+            },
+            "required": ["kind", "crew_id"]
+          },
+          "then": {
+            "required": [
+              "supervisor_route",
+              "worker_routes",
+              "reviewer_route",
+              "escalation_ladder"
+            ],
+            "properties": {
+              "source": false,
+              "crew_name": false,
+              "supervisor": false,
+              "escalation": false,
+              "computed": false
+            }
+          }
+        },
+        {
+          "description": "Governed crews reference the Auto-Orch crew by name, carry the engine supervisor instead of a supervisor route, map the recorded stages and the governed primary/reviewer/judge role names to routes through worker_routes, and record `escalation: not-recorded`. They must never carry `supervisor_route`, `reviewer_route`, or an escalation ladder.",
+          "if": {
+            "properties": { "kind": { "const": "governed" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": [
+              "source",
+              "crew_name",
+              "supervisor",
+              "worker_routes",
+              "escalation"
+            ],
+            "properties": {
+              "supervisor_route": false,
+              "reviewer_route": false,
+              "escalation_ladder": false,
+              "computed": false,
+              "governed_ref": false
+            }
+          }
+        }
+      ]
+    }
+  }
+}

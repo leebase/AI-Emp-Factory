@@ -1,0 +1,3325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/attempt-record.schema.json",
+  "title": "Unified attempt record (Phase 1 P1-2, v2)",
+  "description": "One strict Draft 2020-12 record: the canonical v2 attempt envelope per D209 as mapped by docs/staffing/phase1-contracts.md, unifying the lee-llm-router run-command attempt, the Agent-Orch model/effort observation (/home/lee/projects/auto-orch/src/auto_orch/performance.py OBSERVATION_SCHEMA), and the AI Workforce Benchmark crew-run record (/home/lee/projects/ai-workforce-benchmark/config/crew-run.schema.json). The v1 source-specific payloads remain embedded verbatim as provenance evidence; they are not competing locations for v2 usage, cost, selection, or verdict. Route identity is exactly the tuple (model, effort, harness, channel) per the accepted P0-1 route contract (phase0-contracts §Route); provider is separate optional observed metadata, never part of the identity tuple, never a replacement for channel, and never invented for a source that lacks one. class_record reproduces the strict classes.schema.json $defs/classBlock vocabulary verbatim (same six required fields, same closed value sets, same canonical class_key pattern); imported historical attempts without class metadata omit it and carry class_source: 'none' — the only condition under which class_key is optional. Per D206, quoted verbatim: 'Class metadata MUST NOT map directly to a preferred model or route. It may only: 1. join production attempts to comparable benchmark evidence; and 2. determine whether an unevidenced cheap trial is permitted.' No class-to-model or class-to-route mapping exists in this schema. verified_success is true only for verdict 'pass' with the required route, usage, cost (when usage permits it), oracle, duration, and provenance evidence; where a source lacks a channel, provider, supervisor route, usage, cost, or duration, the field is null or absent — never invented. Every price, fee, capacity, date, or multiplier needs a source; this schema invents none. Phase 1 P1-7b1 (Chief of Staff answer 3, docs/staffing/chief-answers-p1-3.md) adds record_kind 'agent_orch_attempt': the agent-orch runs per-attempt import built only from the authorized raw per-attempt artifacts ($defs/agentOrchAttempt), with class_source 'none' and never class_record, provenance.source 'agent-orch-runs', the verdict tier 'engine_validation', and verified_success exactly the agent-orch validation gate (worker_exit_code == 0 and validation_passed == true). The existing 'agent_orch' full-observation kind is unchanged and reserved for the Phase 4 import. The benchmark_run payload has exactly two shapes selected by oneOf ($defs/benchmarkRunPayload): $defs/crewRunRecord, the historical crew-run envelope retained so append-only ledger lines committed before the raw-v6 repair stay valid and readable — it is no longer written by any importer, because the benchmark v6 staffing-evidence sidecar provides neither a crew name nor a crews-file identity; and $defs/benchmarkV6Run, the raw v6 shape whose payload contains only facts read from the verified sidecar and its SHA-256-pinned source CSV, so no crew or crews-file semantics are ever invented. Because the ledger is append-only, pre-repair legacy rows are never rewritten: re-running the benchmark import appends a deterministic benchmark:v6:<run_id> correction record for each legacy-shaped row whose run is present in the verified source, leaving the fabricated legacy line in place as disclosed history.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attempt_id",
+    "record_kind",
+    "captured_at",
+    "verified_success",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "description": "v2 attempt envelope (phase1-contracts §Attempt record v2 placement)."
+    },
+    "attempt_id": {
+      "type": "string",
+      "description": "Caller-supplied attempt identifier. Pattern taken verbatim from the benchmark crew-run attempt_id; a real Agent-Orch attempt id (e.g. a6a85c6b02c6) matches it. Imports are idempotent by this deterministic id.",
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "minLength": 1
+    },
+    "record_kind": {
+      "type": "string",
+      "description": "Which source produced the attempt; the matching source payload is required (see allOf). 'agent_orch' and 'benchmark_run' are imports embedding their v1 payloads verbatim; 'router_run' is a live run-command attempt whose provenance payload is the router ledger dispatch event. 'agent_orch_attempt' (P1-7b1, Chief answer 3) is the agent-orch runs per-attempt import built only from the authorized raw per-attempt artifacts; it never carries the full observation payload, which remains the Phase 4 'agent_orch' shape. v2 drops the v1 'interactive' kind: a bare dispatch event records no outcome and is not an attempt; dispatch events remain in the events ledger under events.py's own shape, and the router_event payload survives as provenance evidence on router_run records.",
+      "enum": [
+        "agent_orch",
+        "agent_orch_attempt",
+        "benchmark_run",
+        "router_run"
+      ]
+    },
+    "captured_at": {
+      "type": "string",
+      "description": "When the record was captured, aware UTC date-time (analogous to events.py ts and crew-run provenance.assembled_at).",
+      "format": "date-time"
+    },
+    "verified_success": {
+      "type": "boolean",
+      "description": "True only for verdict 'pass' with the required route, usage, cost (when usage permits it), oracle, duration, and provenance evidence genuinely present (enforced by the allOf gate below): usage must be authoritative and non-unavailable with a source and the input/output token fields the current P0-4 pricing needs, while genuinely unknown optional cached_input_tokens/reasoning_tokens stay null (authoritative harness output may omit those optional components). total_tokens stays truthful: optional/null unless authoritatively reported or calculated. Cost may carry basis ['list', 'marginal'] with both figures, or the sole member ['unavailable'] (Phase 3 P3-7 answer 2): a subscription channel's per-token cost is a list-equivalent estimate, never metered spend, and many subscription-only route models have no committed dated price at all, so its absence never withholds verification on its own; the run command, not this schema, gates that exception to a channels.yaml 'subscription' channel. A source that reports success without complete evidence yields false — missing evidence is never invented to reach true. For record_kind 'agent_orch_attempt' (P1-7b1) verified_success instead means exactly the agent-orch validation gate — worker_exit_code == 0 and validation_passed == true, enforced as a schema equivalence — and the full oracle-evidence gate above is bypassed for that kind only; all other kinds keep the gate unchanged."
+    },
+    "verified_success_reason": {
+      "description": "Exact machine reason verified_success is false (P1-4 ruling 3, docs/staffing/chief-answers-p1-4.md). The run command records it on every false router_run record it builds; a verified_success true record never carries one (forbidden by the first allOf gate below). Conditional presence keeps the committed ledger lines and every shipped import example valid: imports without the field stay valid. The vocabulary is closed, and a false router_run record with a non-null supervisor_route (attested) is required to carry a truthful non-unattested reason (last allOf gate below): supervisor_route_unattested (no attested supervisor route was supplied), worker_dispatch_failed (worker exit nonzero or ceiling timeout), oracle_not_passed (oracle verdict not pass: unverified, nonzero exit, launch failure, or ceiling timeout), evidence_incomplete (a remaining route/usage/cost/duration evidence gate does not hold).",
+      "enum": [
+        "supervisor_route_unattested",
+        "worker_dispatch_failed",
+        "oracle_not_passed",
+        "evidence_incomplete"
+      ]
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Top-level packet fact (D209): the packet driving this attempt. Required for router_run records; imports predate packets and omit it."
+    },
+    "parent_attempt_id": {
+      "description": "Link fact (D209): parent attempt of an escalation. Nullable/optional for an initial attempt; an escalation requires both this and escalation_reason (allOf below).",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "escalation_reason": {
+      "description": "Link fact (D209): why this attempt escalates from parent_attempt_id. Nullable/optional for an initial attempt; an escalation requires both.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oracle_cmd": {
+      "description": "Oracle fact (D209): the oracle command whose exit status produced the verdict (exit 0 = pass, nonzero = fail, no oracle = unverified). Null/absent for unverified attempts and for imports without an oracle command.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "verdict": {
+      "description": "Legacy record kinds use the canonical v2 oracle verdict string pass | fail | unverified. An agent_orch_attempt instead carries the closed object {tier: engine_validation}: that tier means agent-orch's own exit-code plus validation gate, never a deterministic/judge/human oracle chosen by this repository. The record-kind conditionals keep the two shapes disjoint; engine_validation is deliberately not a member of the canonical verdict string enum.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/canonicalVerdict"
+        },
+        {
+          "$ref": "#/$defs/agentOrchAttemptVerdict"
+        }
+      ]
+    },
+    "failure_class": {
+      "description": "Failure taxonomy. Exactly five values are proven by the P0-9a task contract (platform_timeout, platform_env, spec_rejected, capability_rejected, unaccounted_spend); no named source proves others, so none are added. Null means no failure recorded (required to be null when verified_success is true).",
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "platform_timeout",
+            "platform_env",
+            "spec_rejected",
+            "capability_rejected",
+            "unaccounted_spend"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "route": {
+      "$ref": "#/$defs/route"
+    },
+    "supervisor_route": {
+      "description": "Supervisor route of the attempt, present only when the source records one (named-crew contract: a named crew carries a supervisor route). Null or absent when the source records no supervisor route; never invented. Null is the explicit 'the source records no supervisor route' marker.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/route"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "class_record": {
+      "$ref": "#/$defs/classRecord"
+    },
+    "class_source": {
+      "description": "Marks the absence of class metadata: the only permitted value is 'none', and it is required on imported historical attempts (record_kind agent_orch or benchmark_run) that omit class_record. It is the only condition under which class_key is optional. Forbidden together with class_record (allOf below); router_run attempts always carry class_record.",
+      "enum": [
+        "none"
+      ]
+    },
+    "usage": {
+      "$ref": "#/$defs/usage"
+    },
+    "cost": {
+      "description": "Legacy record kinds use $defs/cost. agent_orch_attempt uses the narrower $defs/agentOrchAttemptCost so a measured raw usage.json cost can be identified as list basis without inventing a marginal figure.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/cost"
+        },
+        {
+          "$ref": "#/$defs/agentOrchAttemptCost"
+        }
+      ]
+    },
+    "wall_clock_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Observed wall-clock duration in milliseconds, or null when the source does not record one (Agent-Orch observations carry none; benchmark stages/totals carry elapsed_ms). Never estimated or invented.",
+      "minimum": 0
+    },
+    "selection": {
+      "$ref": "#/$defs/selection"
+    },
+    "router_event": {
+      "$ref": "#/$defs/eventRecord"
+    },
+    "agent_orch_observation": {
+      "$ref": "#/$defs/agentOrchObservation"
+    },
+    "agent_orch_attempt": {
+      "$ref": "#/$defs/agentOrchAttempt"
+    },
+    "benchmark_run": {
+      "$ref": "#/$defs/benchmarkRunPayload"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "allOf": [
+          {
+            "required": [
+              "verified_success"
+            ],
+            "properties": {
+              "verified_success": {
+                "const": true
+              }
+            }
+          },
+          {
+            "not": {
+              "required": [
+                "record_kind"
+              ],
+              "properties": {
+                "record_kind": {
+                  "const": "agent_orch_attempt"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "route",
+          "supervisor_route",
+          "class_record",
+          "verdict",
+          "failure_class",
+          "usage",
+          "cost",
+          "wall_clock_ms",
+          "oracle_cmd"
+        ],
+        "properties": {
+          "route": {
+            "$ref": "#/$defs/route"
+          },
+          "supervisor_route": {
+            "$ref": "#/$defs/route"
+          },
+          "failure_class": {
+            "type": "null"
+          },
+          "verdict": {
+            "const": "pass"
+          },
+          "oracle_cmd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usage": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/usage"
+              },
+              {
+                "required": [
+                  "source",
+                  "input_tokens",
+                  "output_tokens"
+                ],
+                "properties": {
+                  "basis": {
+                    "description": "Authoritative non-unavailable usage only; the gate never accepts 'unavailable'.",
+                    "enum": [
+                      "observed",
+                      "provider_reported",
+                      "calculated"
+                    ]
+                  },
+                  "input_tokens": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Required by the gate: current P0-4 pricing needs known input tokens (list input/output/cache rates)."
+                  },
+                  "output_tokens": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Required by the gate: current P0-4 pricing needs known output tokens (list input/output/cache rates)."
+                  }
+                }
+              }
+            ]
+          },
+          "cost": {
+            "description": "Priced cost (basis ['list', 'marginal']) is required whenever the selected channel is metered spend evidence. A subscription channel's cost is a list-equivalent estimate, never metered spend (usage-truth rule): many subscription-only route models carry no committed dated price at all, so basis ['unavailable'] is also accepted here — the run command (loader work, not this schema) gates that exception to channels whose committed channels.yaml kind is exactly 'subscription', never to a metered or unrecognised channel.",
+            "$ref": "#/$defs/cost"
+          },
+          "wall_clock_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "agent_orch_observation"
+        ],
+        "properties": {
+          "agent_orch_observation": {
+            "$ref": "#/$defs/agentOrchObservation"
+          },
+          "provenance": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/provenance"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "agent-orch"
+                  }
+                }
+              }
+            ]
+          },
+          "verdict": {
+            "$ref": "#/$defs/canonicalVerdict"
+          },
+          "cost": {
+            "$ref": "#/$defs/cost"
+          },
+          "selection": false
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch_attempt"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "agent_orch_attempt",
+          "class_source",
+          "verdict",
+          "usage",
+          "cost"
+        ],
+        "properties": {
+          "agent_orch_attempt": {
+            "$ref": "#/$defs/agentOrchAttempt"
+          },
+          "class_source": {
+            "const": "none"
+          },
+          "class_record": false,
+          "verdict": {
+            "$ref": "#/$defs/agentOrchAttemptVerdict"
+          },
+          "usage": {
+            "$ref": "#/$defs/usage"
+          },
+          "cost": {
+            "$ref": "#/$defs/agentOrchAttemptCost"
+          },
+          "provenance": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/provenance"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "agent-orch-runs"
+                  }
+                }
+              }
+            ]
+          },
+          "route": false,
+          "supervisor_route": false,
+          "oracle_cmd": false,
+          "selection": false,
+          "router_event": false,
+          "agent_orch_observation": false,
+          "benchmark_run": false
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "benchmark_run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "benchmark_run"
+        ],
+        "properties": {
+          "benchmark_run": {
+            "$ref": "#/$defs/benchmarkRunPayload"
+          },
+          "provenance": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/provenance"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "benchmark"
+                  }
+                }
+              }
+            ]
+          },
+          "verdict": {
+            "$ref": "#/$defs/canonicalVerdict"
+          },
+          "cost": {
+            "$ref": "#/$defs/cost"
+          },
+          "selection": false
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "router_run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "router_event",
+          "packet_id",
+          "selection",
+          "class_record",
+          "verdict",
+          "usage",
+          "cost"
+        ],
+        "properties": {
+          "router_event": {
+            "$ref": "#/$defs/eventRecord"
+          },
+          "verdict": {
+            "$ref": "#/$defs/canonicalVerdict"
+          },
+          "cost": {
+            "$ref": "#/$defs/cost"
+          },
+          "provenance": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/provenance"
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "router-run"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "verdict"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "router_run"
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "oracle_cmd"
+        ],
+        "properties": {
+          "oracle_cmd": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "verdict"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "router_run"
+          },
+          "verdict": {
+            "const": "unverified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "oracle_cmd": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "agent_orch_attempt"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch_attempt"
+          },
+          "agent_orch_attempt": {
+            "required": [
+              "worker_exit_code",
+              "validation_passed"
+            ],
+            "properties": {
+              "worker_exit_code": {
+                "const": 0
+              },
+              "validation_passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verified_success": {
+            "const": true
+          }
+        }
+      },
+      "else": {
+        "if": {
+          "required": [
+            "record_kind"
+          ],
+          "properties": {
+            "record_kind": {
+              "const": "agent_orch_attempt"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "verified_success": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "agent_orch_attempt"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch_attempt"
+          },
+          "agent_orch_attempt": {
+            "required": [
+              "accounting_status"
+            ],
+            "properties": {
+              "accounting_status": {
+                "const": "measured"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "usage": {
+            "required": [
+              "basis",
+              "source",
+              "input_tokens",
+              "output_tokens"
+            ],
+            "properties": {
+              "basis": {
+                "const": "provider_reported"
+              },
+              "source": {
+                "const": "agent-orch usage.json"
+              },
+              "input_tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "output_tokens": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "cost": {
+            "required": [
+              "basis",
+              "usd_list"
+            ],
+            "properties": {
+              "basis": {
+                "const": "list"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "agent_orch_attempt"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch_attempt"
+          },
+          "agent_orch_attempt": {
+            "required": [
+              "accounting_status"
+            ],
+            "properties": {
+              "accounting_status": {
+                "enum": [
+                  "unaccounted",
+                  null
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "usage": {
+            "required": [
+              "basis",
+              "unavailable_reason"
+            ],
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              },
+              "unavailable_reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "input_tokens": false,
+              "output_tokens": false,
+              "cached_input_tokens": false,
+              "reasoning_tokens": false,
+              "total_tokens": false
+            }
+          },
+          "cost": {
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "record_kind",
+          "agent_orch_attempt"
+        ],
+        "properties": {
+          "record_kind": {
+            "const": "agent_orch_attempt"
+          },
+          "agent_orch_attempt": {
+            "required": [
+              "accounting_status"
+            ],
+            "properties": {
+              "accounting_status": {
+                "const": "not_applicable"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "usage": {
+            "required": [
+              "basis",
+              "unavailable_reason"
+            ],
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              },
+              "unavailable_reason": {
+                "const": "non-metered adapter"
+              },
+              "input_tokens": false,
+              "output_tokens": false,
+              "cached_input_tokens": false,
+              "reasoning_tokens": false,
+              "total_tokens": false
+            }
+          },
+          "cost": {
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "required": [
+              "parent_attempt_id"
+            ],
+            "properties": {
+              "parent_attempt_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "required": [
+              "escalation_reason"
+            ],
+            "properties": {
+              "escalation_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "parent_attempt_id",
+          "escalation_reason"
+        ],
+        "properties": {
+          "parent_attempt_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "escalation_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "class_source"
+        ]
+      },
+      "then": {
+        "properties": {
+          "class_record": false
+        }
+      }
+    },
+    {
+      "if": {
+        "allOf": [
+          {
+            "not": {
+              "required": [
+                "class_record"
+              ]
+            }
+          },
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "record_kind"
+                ],
+                "properties": {
+                  "record_kind": {
+                    "const": "agent_orch"
+                  }
+                }
+              },
+              {
+                "required": [
+                  "record_kind"
+                ],
+                "properties": {
+                  "record_kind": {
+                    "const": "benchmark_run"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "class_source"
+        ],
+        "properties": {
+          "class_source": {
+            "const": "none"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "not": {
+              "required": [
+                "usage"
+              ]
+            }
+          },
+          {
+            "required": [
+              "usage"
+            ],
+            "properties": {
+              "usage": {
+                "required": [
+                  "basis"
+                ],
+                "properties": {
+                  "basis": {
+                    "const": "unavailable"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "usage"
+            ],
+            "properties": {
+              "usage": {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "input_tokens"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "input_tokens"
+                    ],
+                    "properties": {
+                      "input_tokens": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "usage"
+            ],
+            "properties": {
+              "usage": {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "output_tokens"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "output_tokens"
+                    ],
+                    "properties": {
+                      "output_tokens": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "cost": {
+            "properties": {
+              "usd_list": {
+                "type": "null"
+              },
+              "usd_marginal": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "P1-4 ruling 3: a verified_success true record never carries a verified_success_reason — a success has no reason field.",
+      "if": {
+        "required": [
+          "verified_success"
+        ],
+        "properties": {
+          "verified_success": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verified_success_reason": false
+        }
+      }
+    },
+    {
+      "description": "P1-4 ruling 3: an attested (non-null supervisor_route) false router_run record must carry a truthful non-success reason, and that reason is never supervisor_route_unattested — the route was attested. Legacy and import kinds are untouched: records without the field (including every committed ledger line and shipped example) remain valid.",
+      "if": {
+        "allOf": [
+          {
+            "required": [
+              "record_kind",
+              "verified_success",
+              "supervisor_route"
+            ],
+            "properties": {
+              "record_kind": {
+                "const": "router_run"
+              },
+              "verified_success": {
+                "const": false
+              },
+              "supervisor_route": {
+                "$ref": "#/$defs/route"
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "verified_success_reason"
+        ],
+        "properties": {
+          "verified_success_reason": {
+            "enum": [
+              "worker_dispatch_failed",
+              "oracle_not_passed",
+              "evidence_incomplete"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": 2,
+      "attempt_id": "a6a85c6b02c6",
+      "record_kind": "agent_orch",
+      "captured_at": "2026-09-09T12:00:00Z",
+      "verified_success": false,
+      "supervisor_route": null,
+      "class_record": {
+        "class_key": "impl/judge/authority+persistence/m/python",
+        "role": "impl",
+        "oracle_type": "judge",
+        "domain_tags": [
+          "authority",
+          "persistence"
+        ],
+        "size_band": "m",
+        "language": "python"
+      },
+      "verdict": "pass",
+      "failure_class": null,
+      "usage": {
+        "basis": "unavailable",
+        "unavailable_reason": "agent-orch observation v1 records no token counters and no usage artifact"
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": null,
+      "agent_orch_observation": {
+        "schema_version": 1,
+        "idempotency_key": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "source": {
+          "mission": "scratch-mission",
+          "cycle_id": "scratch-cycle-1",
+          "run_id": "scratch-run-1",
+          "producer_step_id": "scratch-producer-step",
+          "producer_attempt": 1,
+          "review_step_id": "scratch-review-step",
+          "review_attempt": 1
+        },
+        "task": {
+          "backlog_title": "scratch backlog item",
+          "producer_role": "author",
+          "reviewer_role": "reviewer"
+        },
+        "producer": {
+          "requested": {
+            "harness": "pi_cli",
+            "model": "scratch-model",
+            "effort": "high"
+          },
+          "executed": {
+            "harness": "unknown",
+            "model": "unknown",
+            "effort": "unknown"
+          },
+          "executed_attested": false
+        },
+        "reviewer": {
+          "requested": {
+            "harness": "claude_code",
+            "model": "scratch-supervisor-model",
+            "effort": "high"
+          },
+          "executed": {
+            "harness": "unknown",
+            "model": "unknown",
+            "effort": "unknown"
+          },
+          "executed_attested": false
+        },
+        "outcome": {
+          "run_status": "COMPLETED",
+          "run_passed": true,
+          "cycle_outcome": "completed",
+          "final_completion": true
+        },
+        "review": {
+          "final_verdict": "pass",
+          "first_review_clean": true,
+          "severity_threshold": "Low",
+          "severity_counts": {
+            "Critical": 0,
+            "High": 0,
+            "Medium": 0,
+            "Low": 0
+          },
+          "finding_count": 0,
+          "blocking_finding_count": 0,
+          "review_cycles": 1,
+          "repair_cycles": 0,
+          "artifact_sha256s": [
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ]
+        }
+      },
+      "provenance": {
+        "source": "agent-orch",
+        "recorded_by": "phase1-staffing-p1-2",
+        "source_refs": [
+          "/home/lee/projects/auto-orch/src/auto_orch/performance.py OBSERVATION_SCHEMA",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §Usage evidence taxonomy",
+          "docs/staffing/phase0-contracts.md class-key grammar and D206",
+          "config/staffing/schema/classes.schema.json $defs/classBlock"
+        ],
+        "notes": [
+          "Scratch example for one real Agent-Orch attempt id (a6a85c6b02c6); no private run material is copied.",
+          "Imported agent-orch record: provenance.source is 'agent-orch' and the v1 observation payload is embedded verbatim as provenance evidence.",
+          "usage.basis is 'unavailable' with an explicit reason because the observation records no token counters; cost.basis is ['unavailable'] with no numeric figures because unknown usage produces no cost, never an estimate.",
+          "No route and no provider are asserted: the observation records requested model/harness/effort only, with no channel, so no full (model, effort, harness, channel) identity tuple exists in this source.",
+          "supervisor_route is null: the source records no executed supervisor route (executed_attested false on both participants).",
+          "verdict 'pass' is the canonical v2 verdict mapped from review.final_verdict 'pass'; the source-specific verdict remains in the embedded payload.",
+          "verified_success is false because the source records a passing outcome but lacks complete route, supervisor-route, usage, cost, oracle, and duration evidence; nothing is invented."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "bench-mixed-economy-0001",
+      "record_kind": "benchmark_run",
+      "captured_at": "2026-09-09T12:00:00Z",
+      "verified_success": false,
+      "class_record": {
+        "class_key": "impl/human/none/m/mixed",
+        "role": "impl",
+        "oracle_type": "human",
+        "domain_tags": [],
+        "size_band": "m",
+        "language": "mixed"
+      },
+      "verdict": "pass",
+      "failure_class": null,
+      "usage": {
+        "basis": "unavailable",
+        "unavailable_reason": "the embedded benchmark crew-run v1 payload records no token counters (evidence_status unmeasured)"
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": null,
+      "benchmark_run": {
+        "schema_version": "benchmark.crew-run/1",
+        "crew_name": "mixed-economy",
+        "crews_file_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "mission": {
+          "task_key": "scratch-task-1",
+          "role_composition": [
+            "envision",
+            "ideate",
+            "reconsider",
+            "score",
+            "author"
+          ]
+        },
+        "attempt_id": "bench-mixed-economy-0001",
+        "stages": [
+          {
+            "stage": "author",
+            "worker": {
+              "model": "scratch-model",
+              "harness": "claude_code",
+              "effort": "medium",
+              "model_family": "scratch-family"
+            },
+            "run_id": "scratch-run-1",
+            "cost_low_usd": null,
+            "cost_high_usd": null,
+            "elapsed_ms": null,
+            "acceptance": null,
+            "pricing_snapshot_ref": null,
+            "pricing_snapshot_sha256": null,
+            "evidence_status": "unmeasured"
+          }
+        ],
+        "totals": {
+          "cost_low_usd": null,
+          "cost_high_usd": null,
+          "elapsed_ms": null,
+          "stage_count": 1,
+          "priced_stage_count": 0,
+          "timed_stage_count": 0
+        },
+        "final_acceptance": "accepted",
+        "provenance": {
+          "assembled_by": "phase0-staffing-p0-9a",
+          "assembled_at": "2026-09-09T12:00:00Z",
+          "source_csv_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "notes": [
+            "scratch benchmark run; no real pricing or run data"
+          ]
+        }
+      },
+      "provenance": {
+        "source": "benchmark",
+        "recorded_by": "phase1-staffing-p1-2",
+        "source_refs": [
+          "/home/lee/projects/ai-workforce-benchmark/config/crew-run.schema.json",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §Ledger, rollup, and imports",
+          "docs/staffing/phase0-contracts.md class-key grammar and D206"
+        ],
+        "notes": [
+          "Scratch example for one benchmark run; the embedded benchmark_run payload keeps the crew-run record verbatim, including its own attempt_id.",
+          "Legacy pre-repair shape: this crew-run envelope (crew_name 'mixed-economy' and the crews_file_sha256 sidecar digest) is retained only so committed append-only ledger lines stay valid; the v6 sidecar provides neither a crew name nor a crews-file identity, so current imports write the raw benchmarkV6Run shape instead and never fabricate these fields.",
+          "Imported benchmark row: provenance.source is 'benchmark' and source usage is preserved exactly (this crew-run v1 shape captures none).",
+          "verdict 'pass' is the canonical v2 verdict mapped from final_acceptance 'accepted'; the benchmark acceptance vocabulary remains in the embedded payload.",
+          "No route, provider, or supervisor_route is asserted: the crew-run worker records model/harness/effort/model_family only, with no channel and no supervisor route.",
+          "usage.basis is 'unavailable' with an explicit reason; cost.basis is ['unavailable'] because the v6 CSV usage_*_tokens inputs this import needs are absent here and no dated P0-4 terms price an untokenized row; no figure is estimated.",
+          "verified_success is false because the run carries a passing acceptance but lacks complete route, supervisor-route, usage, cost, oracle, and duration evidence; nothing is invented."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "pi-run-0001",
+      "record_kind": "router_run",
+      "packet_id": "scratch-packet-0001",
+      "parent_attempt_id": null,
+      "escalation_reason": null,
+      "captured_at": "2026-09-09T12:00:00Z",
+      "verified_success": false,
+      "route": {
+        "model": "scratch-model",
+        "effort": "high",
+        "harness": "cli",
+        "channel": "anthropic-sub",
+        "provider": "anthropic"
+      },
+      "supervisor_route": null,
+      "class_record": {
+        "class_key": "review/judge/none/xs/markdown",
+        "role": "review",
+        "oracle_type": "judge",
+        "domain_tags": [],
+        "size_band": "xs",
+        "language": "markdown"
+      },
+      "verdict": "unverified",
+      "failure_class": null,
+      "oracle_cmd": null,
+      "usage": {
+        "basis": "unavailable",
+        "unavailable_reason": "text mode"
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": null,
+      "selection": {
+        "basis": "explicit",
+        "reason": "explicitly requested route is eligible",
+        "explain_ref": "catalog explain --json route-scratch-high",
+        "excluded": []
+      },
+      "router_event": {
+        "ts": "2026-09-09T12:00:00Z",
+        "host": "scratch-host",
+        "harness": "cli",
+        "crew": "scratch-crew",
+        "role": "reviewer",
+        "mode": "strict",
+        "worker_id": "scratch-worker",
+        "provider": "anthropic",
+        "model": "scratch-model",
+        "effort": "high",
+        "channel": "anthropic-sub",
+        "headroom": "healthy",
+        "reason": "top eligible worker for reviewer",
+        "authorized_by": null,
+        "route_id": "anthropic/scratch-model/high",
+        "snapshot_observed_at": "2026-09-09T11:55:00Z",
+        "snapshot_stale": false
+      },
+      "provenance": {
+        "source": "router-run",
+        "recorded_by": "phase1-staffing-p1-2",
+        "source_refs": [
+          "src/lee_llm_router/events.py EVENT_FIELDS and build_event contract",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §run command, §Usage evidence taxonomy",
+          "docs/staffing/catalog.md channel ids (anthropic-sub)",
+          "docs/staffing/phase0-contracts.md class-key canonical example review/judge/none/xs/markdown"
+        ],
+        "notes": [
+          "Scratch example for one live run-command attempt; the embedded router_event payload carries exactly the EVENT_FIELDS keys as provenance evidence.",
+          "usage.basis is 'unavailable' with unavailable_reason 'text mode': until P1-4a is accepted, supervisor Pi attempts record no authoritative usage (phase1-contracts §Usage evidence taxonomy).",
+          "cost.basis is ['unavailable'] with no numeric figures: unknown usage produces no cost, never an estimate.",
+          "verdict is 'unverified' because no --oracle CMD was given; oracle_cmd is null accordingly.",
+          "selection preserves the explicit-route explain evidence; excluded is empty because no eligible route was excluded.",
+          "verified_success is false: unverified verdict with no usage, cost, or duration evidence; nothing is invented."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "pi-run-0002",
+      "record_kind": "router_run",
+      "packet_id": "scratch-packet-0001",
+      "parent_attempt_id": "pi-run-0001",
+      "escalation_reason": "review failed: one blocking finding on the same route",
+      "captured_at": "2026-09-09T12:30:00Z",
+      "verified_success": false,
+      "route": {
+        "model": "scratch-model-b",
+        "effort": "medium",
+        "harness": "cli",
+        "channel": "openrouter",
+        "provider": "openrouter"
+      },
+      "supervisor_route": null,
+      "class_record": {
+        "class_key": "impl/judge/authority+persistence/m/python",
+        "role": "impl",
+        "oracle_type": "judge",
+        "domain_tags": [
+          "authority",
+          "persistence"
+        ],
+        "size_band": "m",
+        "language": "python"
+      },
+      "verdict": "fail",
+      "failure_class": "spec_rejected",
+      "oracle_cmd": "scratch-oracle --check",
+      "usage": {
+        "basis": "provider_reported",
+        "source": "codex exec --json usage",
+        "input_tokens": 1200,
+        "output_tokens": 340,
+        "cached_input_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 1540
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": null,
+      "selection": {
+        "basis": "explain_cheapest_eligible",
+        "reason": "first eligible route in catalog explain --json marginal-price order",
+        "explain_ref": "catalog explain --json --role impl --class impl/judge/authority+persistence/m/python",
+        "excluded": [
+          {
+            "route_id": "route-scratch-high",
+            "reason": "headroom likely_exhausted on channel anthropic-sub"
+          },
+          {
+            "route_id": "route-scratch-fallback",
+            "reason": "terms unpriced for the dated P0-4 snapshot"
+          }
+        ]
+      },
+      "router_event": {
+        "ts": "2026-09-09T12:30:00Z",
+        "host": "scratch-host",
+        "harness": "cli",
+        "crew": "scratch-crew",
+        "role": "reviewer",
+        "mode": "strict",
+        "worker_id": "scratch-worker",
+        "provider": "openrouter",
+        "model": "scratch-model-b",
+        "effort": "medium",
+        "channel": "openrouter",
+        "headroom": "healthy",
+        "reason": "first eligible worker for impl in marginal-price order",
+        "authorized_by": null,
+        "route_id": "openrouter/scratch-model-b/medium",
+        "snapshot_observed_at": "2026-09-09T12:25:00Z",
+        "snapshot_stale": false
+      },
+      "provenance": {
+        "source": "router-run",
+        "recorded_by": "phase1-staffing-p1-2",
+        "source_refs": [
+          "src/lee_llm_router/events.py EVENT_FIELDS and build_event contract",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §run command, §Cost rule, §Usage evidence taxonomy",
+          "docs/staffing/phase0-contracts.md class-key grammar and D206"
+        ],
+        "notes": [
+          "Scratch escalation example: parent_attempt_id and escalation_reason are both present, as phase1-contracts requires for a linked attempt.",
+          "usage.basis is 'provider_reported' from the exact 'codex exec --json usage' evidence string; the counters (including the zero cached/reasoning components the source reports) are scratch demonstration values for one hypothetical dispatch, never estimates.",
+          "cost.basis is ['unavailable'] because this scratch example selects no dated P0-4 terms; cost figures are never estimated from tokens, and any harness cost estimate would be a provenance note, not a substitute.",
+          "verdict 'fail' with failure_class 'spec_rejected': the recorded oracle command exited nonzero.",
+          "selection preserves route ids and explain reasons only — no new selection judgment — and no class-to-route mapping exists (D206).",
+          "verified_success is false: verdict fail, plus no wall_clock_ms is asserted because this scratch dispatch records none."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "a6a85c6b02c7",
+      "record_kind": "agent_orch",
+      "captured_at": "2026-09-09T12:00:00Z",
+      "verified_success": false,
+      "supervisor_route": null,
+      "class_source": "none",
+      "verdict": "pass",
+      "failure_class": null,
+      "usage": {
+        "basis": "provider_reported",
+        "source": "agent-orch usage.json/accounting_status",
+        "input_tokens": 900,
+        "output_tokens": 250,
+        "cached_input_tokens": 0,
+        "reasoning_tokens": null,
+        "total_tokens": 1150
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": null,
+      "agent_orch_observation": {
+        "schema_version": 1,
+        "idempotency_key": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "source": {
+          "mission": "scratch-mission",
+          "cycle_id": "scratch-cycle-1",
+          "run_id": "scratch-run-1",
+          "producer_step_id": "scratch-producer-step",
+          "producer_attempt": 1,
+          "review_step_id": "scratch-review-step",
+          "review_attempt": 1
+        },
+        "task": {
+          "backlog_title": "scratch backlog item",
+          "producer_role": "author",
+          "reviewer_role": "reviewer"
+        },
+        "producer": {
+          "requested": {
+            "harness": "pi_cli",
+            "model": "scratch-model",
+            "effort": "high"
+          },
+          "executed": {
+            "harness": "unknown",
+            "model": "unknown",
+            "effort": "unknown"
+          },
+          "executed_attested": false
+        },
+        "reviewer": {
+          "requested": {
+            "harness": "claude_code",
+            "model": "scratch-supervisor-model",
+            "effort": "high"
+          },
+          "executed": {
+            "harness": "unknown",
+            "model": "unknown",
+            "effort": "unknown"
+          },
+          "executed_attested": false
+        },
+        "outcome": {
+          "run_status": "COMPLETED",
+          "run_passed": true,
+          "cycle_outcome": "completed",
+          "final_completion": true
+        },
+        "review": {
+          "final_verdict": "pass",
+          "first_review_clean": true,
+          "severity_threshold": "Low",
+          "severity_counts": {
+            "Critical": 0,
+            "High": 0,
+            "Medium": 0,
+            "Low": 0
+          },
+          "finding_count": 0,
+          "blocking_finding_count": 0,
+          "review_cycles": 1,
+          "repair_cycles": 0,
+          "artifact_sha256s": [
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ]
+        }
+      },
+      "provenance": {
+        "source": "agent-orch",
+        "recorded_by": "phase1-staffing-p1-2",
+        "source_refs": [
+          "/home/lee/projects/auto-orch/src/auto_orch/performance.py OBSERVATION_SCHEMA",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §Ledger, rollup, and imports, §Usage evidence taxonomy",
+          "docs/staffing/phase0-contracts.md class-key grammar and D206"
+        ],
+        "notes": [
+          "Scratch imported agent-orch row without class metadata: class_source is 'none', the only condition under which class_record/class_key may be omitted (phase1-contracts).",
+          "usage.basis is 'provider_reported' from the exact 'agent-orch usage.json/accounting_status' evidence string; the accounted artifact's usage is preserved exactly, including the unknown reasoning component as null (never zero).",
+          "An accounting_status of 'unaccounted' would instead record basis 'unavailable' with a reason — unavailable, never zero.",
+          "cost.basis is ['unavailable']: this scratch import selects no dated P0-4 terms, so no cost figure is derived; unknown terms never yield an estimate.",
+          "verdict 'pass' is mapped from review.final_verdict 'pass'; the source-specific verdict remains in the embedded payload.",
+          "verified_success is false: no route, supervisor route, class record, or duration evidence is present, and none is invented."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "b0ccf22e228b8dbc599747372cbf018150ff39eeedd3437de8d4f70e2ec00daa",
+      "record_kind": "agent_orch_attempt",
+      "captured_at": "2026-09-09T09:13:48.542239Z",
+      "verified_success": true,
+      "class_source": "none",
+      "verdict": {
+        "tier": "engine_validation"
+      },
+      "usage": {
+        "basis": "provider_reported",
+        "source": "agent-orch usage.json",
+        "input_tokens": 56817,
+        "output_tokens": 474,
+        "cached_input_tokens": 46848,
+        "reasoning_tokens": 82,
+        "total_tokens": 57291
+      },
+      "cost": {
+        "basis": "list",
+        "usd_list": 0.2554872
+      },
+      "agent_orch_attempt": {
+        "run_id": "a6a85c6b02c6",
+        "step_id": "step_01_seal_authority_and_anchor_repairs",
+        "attempt_number": 1,
+        "route": {
+          "harness": "codex_cli",
+          "model": "gpt-5.6-sol",
+          "effort": "low"
+        },
+        "worker_exit_code": 0,
+        "validation_passed": true,
+        "policy_decision": "PASS",
+        "failure_classification": null,
+        "accounting_status": "measured",
+        "usage": {
+          "input_tokens": 56817,
+          "output_tokens": 474,
+          "cached_read_tokens": 46848,
+          "reasoning_output_tokens": 82,
+          "total_tokens": 57291
+        },
+        "cost_usd": 0.2554872,
+        "source_paths": [
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/run.json",
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/steps/step_01_seal_authority_and_anchor_repairs/attempt-1/route-selection.json",
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/steps/step_01_seal_authority_and_anchor_repairs/attempt-1/usage.json"
+        ]
+      },
+      "provenance": {
+        "source": "agent-orch-runs",
+        "recorded_by": "phase1-staffing-p1-7b1",
+        "source_refs": [
+          "docs/staffing/chief-answers-p1-3.md",
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/run.json",
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/steps/step_01_seal_authority_and_anchor_repairs/attempt-1/route-selection.json",
+          "/home/lee/projects/linux-utilities-agent-orch-runs/a6a85c6b02c6/steps/step_01_seal_authority_and_anchor_repairs/attempt-1/usage.json"
+        ],
+        "notes": [
+          "Real raw attempt fixture: only the three named source files were read; no provider was invoked.",
+          "attempt_id is sha256 of a6a85c6b02c6/step_01_seal_authority_and_anchor_repairs/1.",
+          "captured_at preserves run.json last_updated_at; per-attempt started_at and ended_at are absent because the authorized raw attempt does not record them.",
+          "Top-level cached_input_tokens maps usage.json cached_read_tokens, and reasoning_tokens maps raw_usage.reasoning_output_tokens; all copied numeric values are unchanged.",
+          "cost is list basis only and preserves usage.json cost_usd; no marginal cost, class, channel, provider, supervisor route, oracle, or wall-clock duration is inferred."
+        ]
+      }
+    },
+    {
+      "schema_version": 2,
+      "attempt_id": "benchmark:scratch-run-1",
+      "record_kind": "benchmark_run",
+      "captured_at": "2026-09-09T12:05:00Z",
+      "verified_success": false,
+      "class_record": {
+        "class_key": "impl/deterministic/none/m/python",
+        "role": "impl",
+        "oracle_type": "deterministic",
+        "domain_tags": [],
+        "size_band": "m",
+        "language": "python"
+      },
+      "verdict": "pass",
+      "failure_class": null,
+      "usage": {
+        "basis": "provider_reported",
+        "source": "benchmark v6 CSV usage_*_tokens",
+        "input_tokens": 101,
+        "output_tokens": 202,
+        "cached_input_tokens": 33,
+        "reasoning_tokens": null,
+        "total_tokens": 303
+      },
+      "cost": {
+        "basis": [
+          "unavailable"
+        ]
+      },
+      "wall_clock_ms": 290000,
+      "benchmark_run": {
+        "schema_version": "benchmark.staffing-evidence/2",
+        "sidecar_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "source_csv": {
+          "path": "benchmark-v6-runs.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "generated_at": "2026-09-09T15:00:00Z",
+        "run_id": "scratch-run-1",
+        "task_key": "scratch-task-1",
+        "class": {
+          "class_key": "impl/deterministic/none/m/python",
+          "role": "impl",
+          "oracle_type": "deterministic",
+          "domain_tags": [],
+          "size_band": "m",
+          "language": "python"
+        },
+        "worker": {
+          "model": "scratch-model",
+          "harness": "claude_code",
+          "effort": "medium",
+          "model_family": "scratch-family"
+        },
+        "usage": {
+          "usage_status": "known",
+          "usage_input_tokens": 101,
+          "usage_output_tokens": 202,
+          "usage_cached_input_tokens": 33,
+          "usage_reasoning_tokens": null,
+          "usage_total_tokens": 303
+        },
+        "acceptance": "accepted",
+        "elapsed_ms": 290000,
+        "source_timestamps": {
+          "run_created_at": "2026-09-09T12:00:00Z",
+          "launch_created_at": "2026-09-09T12:00:05Z",
+          "started_at": "2026-09-09T12:00:05Z",
+          "finished_at": "2026-09-09T12:04:55Z",
+          "captured_at": "2026-09-09T12:05:00Z"
+        }
+      },
+      "provenance": {
+        "source": "benchmark",
+        "recorded_by": "lee-llm-router evidence import",
+        "source_refs": [
+          "tests/fixtures/staffing/benchmark-v6-sidecar.fixture",
+          "tests/fixtures/staffing/benchmark-v6-runs.csv",
+          "docs/staffing/phase1-contracts.md §Attempt record v2 placement, §Usage evidence taxonomy"
+        ],
+        "notes": [
+          "Scratch example of the raw benchmarkV6Run payload written by the current evidence import; every payload fact is copied from the verified v6 sidecar/source-CSV join.",
+          "No crew_name and no crews_file_sha256 exist anywhere in the record: the v6 sidecar provides neither a crew name nor a crews-file identity, and the sidecar digest is carried as sidecar_sha256 only.",
+          "The payload worker carries the four join-verified fields; the sidecar's provider/vendor worker labels are not carried because they would imply route semantics the source does not assert.",
+          "usage.basis is 'provider_reported' from the exact 'benchmark v6 CSV usage_*_tokens' evidence string; the raw payload preserves the source column names, including the null reasoning component (never zero).",
+          "No route, provider, supervisor_route, stage, role composition, or canonical cost is asserted because the source records none; cost.basis is ['unavailable'] and no figure is estimated.",
+          "verdict 'pass' is the canonical v2 verdict mapped from acceptance 'accepted'; the acceptance vocabulary remains in the embedded payload.",
+          "verified_success is false because the run lacks complete route, supervisor-route, class-record provenance gate, oracle, and cost evidence; nothing is invented."
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "canonicalVerdict": {
+      "type": "string",
+      "description": "Canonical v2 oracle verdict for the three pre-existing record kinds. This enum is unchanged by P1-7b1; engine_validation is a tier in agentOrchAttemptVerdict, not a verdict string.",
+      "enum": [
+        "pass",
+        "fail",
+        "unverified",
+        "judge_pass",
+        "judge_fail"
+      ]
+    },
+    "agentOrchAttemptVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Verdict provenance for a raw agent-orch attempt. engine_validation means the result is exactly agent-orch's own worker-exit and validation gate; it is not an oracle selected by lee-llm-router.",
+      "required": [
+        "tier"
+      ],
+      "properties": {
+        "tier": {
+          "enum": [
+            "engine_validation"
+          ]
+        }
+      }
+    },
+    "agentOrchAttemptCost": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cost mapping for agent_orch_attempt only. A measured usage.json supplies one verbatim list-basis figure; unavailable accounting supplies no figure. No marginal cost is inferred.",
+      "required": [
+        "basis"
+      ],
+      "properties": {
+        "basis": {
+          "enum": [
+            "list",
+            "unavailable"
+          ]
+        },
+        "usd_list": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": "list"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "usd_list"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "usd_list": false
+            }
+          }
+        }
+      ]
+    },
+    "agentOrchAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Authorized raw per-attempt facts only, copied from run.json plus the attempt's route-selection.json and usage.json when present. It deliberately excludes the synthesized Phase 4 agentOrchObservation fields and all class metadata.",
+      "required": [
+        "run_id",
+        "step_id",
+        "attempt_number",
+        "route",
+        "worker_exit_code",
+        "validation_passed",
+        "policy_decision",
+        "failure_classification",
+        "accounting_status",
+        "source_paths"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "route": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "harness",
+            "model",
+            "effort"
+          ],
+          "properties": {
+            "harness": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "effort": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        "worker_exit_code": {
+          "type": "integer"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "policy_decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failure_classification": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "accounting_status": {
+          "description": "Verbatim usage.json accounting_status, or null when the attempt has no usage.json receipt.",
+          "enum": [
+            "measured",
+            "unaccounted",
+            "not_applicable",
+            null
+          ]
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Token fields copied from usage.json when present. Names retain the raw agent-orch receipt vocabulary.",
+          "properties": {
+            "input_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "output_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "cached_read_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "reasoning_output_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "total_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            }
+          },
+          "minProperties": 1
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_paths": {
+          "type": "array",
+          "description": "Exact paths of the raw files read for this attempt; a missing usage.json is omitted rather than invented.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "accounting_status"
+            ],
+            "properties": {
+              "accounting_status": {
+                "const": "measured"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "usage",
+              "cost_usd"
+            ],
+            "properties": {
+              "usage": {
+                "required": [
+                  "input_tokens",
+                  "output_tokens"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cost_usd": false
+            }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Record-level provenance: which system produced this attempt record and which named sources it cites. v2 adds the required discriminant 'source': 'benchmark' and 'agent-orch' mark imports; 'router-run' marks a live run-command attempt. It pairs with record_kind (benchmark_run<->benchmark, agent_orch<->agent-orch, router_run<->router-run) and is enforced by the top-level allOf. The v1 source-specific payloads (router_event, agent_orch_observation, benchmark_run) remain provenance evidence inside this object's record, never competing locations for v2 usage, cost, selection, or verdict.",
+      "required": [
+        "source",
+        "recorded_by",
+        "source_refs"
+      ],
+      "properties": {
+        "source": {
+          "description": "Producing system: 'benchmark' or 'agent-orch' for imports, 'router-run' for live run-command attempts (phase1-contracts §Attempt record v2 placement).",
+          "enum": [
+            "benchmark",
+            "agent-orch",
+            "agent-orch-runs",
+            "router-run"
+          ]
+        },
+        "recorded_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "type": "array",
+          "description": "References to the named sources that justify this record's fields.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "worker_output_dir": {
+          "description": "Optional absolute path to the directory persisting worker stdout and stderr per attempt, or null when persistence failed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Route identity is exactly the tuple (model, effort, harness, channel), per the accepted P0-1 route contract (phase0-contracts §Route; routes.schema.json $defs/route). 'provider' is separate optional observed metadata: it is not part of the identity tuple, is never a replacement for channel, and is null/absent when the source does not observe a provider — never invented. Observed attempt evidence only; never derived from class metadata (D206).",
+      "required": [
+        "model",
+        "effort",
+        "harness",
+        "channel"
+      ],
+      "properties": {
+        "model": {
+          "description": "Model identifier; part of the route identity tuple.",
+          "type": "string",
+          "minLength": 1
+        },
+        "effort": {
+          "description": "Model effort dial; part of the route identity tuple. Null only where the harness has no effort dial.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "harness": {
+          "description": "Harness identifier; part of the route identity tuple.",
+          "type": "string",
+          "minLength": 1
+        },
+        "channel": {
+          "description": "Channel identifier; part of the route identity tuple. Must match a channel_id in the channel catalog (cross-catalog check is loader work).",
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "description": "Optional observed provider metadata. Not part of the route identity tuple, never a replacement for channel, and null/absent when the source does not observe a provider.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channel_instance": {
+          "description": "Optional observed channel-instance metadata. Not part of the route identity tuple, and null/absent when the source records no instance.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "classRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The strict classes.schema.json $defs/classBlock vocabulary, reproduced verbatim: same six required fields (class_key plus the five components), same closed value sets, same canonical class_key pattern. Per D206, quoted verbatim: 'Class metadata MUST NOT map directly to a preferred model or route. It may only: 1. join production attempts to comparable benchmark evidence; and 2. determine whether an unevidenced cheap trial is permitted.' No class-to-model or class-to-route property exists here and none may be added; the five components are authoritative for validation and class_key is the canonical string rendering (role/oracle_type/domain_tags/size_band/language with tags sorted ascending by codepoint, deduplicated, '+'-joined, and the empty set rendered as the literal 'none', never an empty segment). Cross-field equality between class_key and the components, plus sortedness/dedup of the key segment beyond what the pattern enforces, is loader work (catalog.validate_class_block); the attempt ledger additionally enforces that equality (canonical reconstruction of the five components) on every appended and read attempt record so evidence joins stay reliable — no class-to-model lookup.",
+      "required": [
+        "class_key",
+        "role",
+        "oracle_type",
+        "domain_tags",
+        "size_band",
+        "language"
+      ],
+      "properties": {
+        "class_key": {
+          "description": "Canonical key string: role/oracle_type/domain_tags/size_band/language, with the domain-tags segment the literal 'none' for the empty tag set, or one or more tags from the closed set joined by '+' (sortedness and dedup of the segment are loader-enforced). An empty segment (doubled slash) is rejected.",
+          "type": "string",
+          "pattern": "^(impl|plan|review|judge|prose)/(deterministic|judge|human|none)/(none|(?:persistence|concurrency|security|authority|ui-browser|data-schema|infra-env)(?:\\+(?:persistence|concurrency|security|authority|ui-browser|data-schema|infra-env))*)/(xs|s|m|l)/(python|typescript|shell|c|sql|yaml-config|markdown|mixed)$"
+        },
+        "role": {
+          "description": "Class role; member of the closed role value set.",
+          "enum": [
+            "impl",
+            "plan",
+            "review",
+            "judge",
+            "prose"
+          ]
+        },
+        "oracle_type": {
+          "description": "Oracle kind for this class; member of the closed oracle_type value set.",
+          "enum": [
+            "deterministic",
+            "judge",
+            "human",
+            "none"
+          ]
+        },
+        "domain_tags": {
+          "description": "Domain tags; the closed seven-tag vocabulary, unique members, possibly empty. This is the authoritative component for the third key segment.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "persistence",
+              "concurrency",
+              "security",
+              "authority",
+              "ui-browser",
+              "data-schema",
+              "infra-env"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "size_band": {
+          "description": "Size band; member of the closed size_band value set.",
+          "enum": [
+            "xs",
+            "s",
+            "m",
+            "l"
+          ]
+        },
+        "language": {
+          "description": "Primary language; member of the closed language value set.",
+          "enum": [
+            "python",
+            "typescript",
+            "shell",
+            "c",
+            "sql",
+            "yaml-config",
+            "markdown",
+            "mixed"
+          ]
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Token usage for the attempt (D209 v2 placement). 'basis' is the narrowest truthful basis: observed | provider_reported | calculated | unavailable. A non-unavailable basis requires 'source': for 'provider_reported' it is exactly one of the phase1-contracts §Usage evidence taxonomy harness strings, while 'observed' and 'calculated' use a nonempty authoritative source description (never one of those provider_reported strings); 'unavailable' requires 'unavailable_reason' and forbids 'source' and every token counter — unavailable means the tokens are unavailable, never hidden numeric evidence. Token counters are nonnegative integers when reported and null or absent when unknown; total_tokens stays null/absent unless the source authoritatively reports it or it is calculated from authoritatively reported components. Zero is evidence only when the source actually reports zero; it is never an unknown sentinel, and no parser estimates tokens from text, context length, cost, or elapsed time.",
+      "required": [
+        "basis"
+      ],
+      "properties": {
+        "basis": {
+          "description": "observed | provider_reported | calculated | unavailable.",
+          "enum": [
+            "observed",
+            "provider_reported",
+            "calculated",
+            "unavailable"
+          ]
+        },
+        "source": {
+          "description": "Required iff basis is not 'unavailable'. For 'provider_reported': exactly one of the authoritative phase1-contracts §Usage evidence taxonomy strings (closed enum, enforced below), including the P1-7b1 raw-attempt source agent-orch usage.json. For 'observed' or 'calculated': a nonempty authoritative description of the observing or calculating source — never one of the provider_reported harness strings (enforced below). Forbidden when basis is 'unavailable'.",
+          "type": "string",
+          "minLength": 1
+        },
+        "unavailable_reason": {
+          "description": "Specific missing-event/output reason, required iff basis is 'unavailable' (e.g. 'text mode' for supervisor Pi attempts until P1-4a).",
+          "type": "string",
+          "minLength": 1
+        },
+        "input_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        },
+        "output_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        },
+        "cached_input_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        },
+        "reasoning_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        },
+        "cache_write_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        },
+        "total_tokens": {
+          "$ref": "#/$defs/tokenCounter"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "unavailable_reason"
+            ],
+            "properties": {
+              "source": false,
+              "input_tokens": {
+                "type": "null"
+              },
+              "output_tokens": {
+                "type": "null"
+              },
+              "cached_input_tokens": {
+                "type": "null"
+              },
+              "reasoning_tokens": {
+                "type": "null"
+              },
+              "cache_write_tokens": {
+                "type": "null"
+              },
+              "total_tokens": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "enum": [
+                  "observed",
+                  "provider_reported",
+                  "calculated"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "source"
+            ],
+            "properties": {
+              "unavailable_reason": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": "provider_reported"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "description": "provider_reported pairs only with the exact phase1-contracts §Usage evidence taxonomy harness evidence strings — never a free-text description.",
+                "enum": [
+                  "pi --mode json events",
+                  "codex exec --json usage",
+                  "claude -p --output-format stream-json result event",
+                  "agy -p usage line (agent-orch worker.py)",
+                  "opencode run JSON usage event",
+                  "opencode worker-written usage.json from provider output",
+                  "omp -p --mode json events",
+                  "benchmark v6 CSV usage_*_tokens",
+                  "agent-orch usage.json/accounting_status",
+                  "agent-orch usage.json"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "enum": [
+                  "observed",
+                  "calculated"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "description": "observed/calculated cite a nonempty authoritative source description of the observer or calculation — never falsely paired with a provider_reported harness evidence string.",
+                "not": {
+                  "enum": [
+                    "pi --mode json events",
+                    "codex exec --json usage",
+                    "claude -p --output-format stream-json result event",
+                    "agy -p usage line (agent-orch worker.py)",
+                    "opencode run JSON usage event",
+                    "opencode worker-written usage.json from provider output",
+                    "omp -p --mode json events",
+                    "benchmark v6 CSV usage_*_tokens",
+                    "agent-orch usage.json/accounting_status",
+                    "agent-orch usage.json"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tokenCounter": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Nonnegative integer token count when reported; null or absent when unknown. Zero is genuine source-reported evidence only, never an unknown sentinel; counters are never estimated or fabricated."
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cost with its basis (D209 v2 placement; phase1-contracts §Cost rule). Known cost carries basis ['list', 'marginal'] and both figures; unavailable cost is the sole member ['unavailable'] and carries neither figure. Figures are JSON numbers derived from known tokens and the selected dated P0-4 terms; unknown usage produces ['unavailable'] and no numeric cost (enforced by the top-level usage-cost allOf). Harness cost estimates and subscription fees are provenance notes, never attempt-token cost substitutes. The governing dated-terms citation lives in provenance (source_refs/notes) or the pricing snapshot fields, never in an invented number. The pricing_snapshot_ref and pricing_snapshot_sha256 fields are pre-existing, accepted Phase 0 baseline fields (P0-9a, accepted by D208): they are carried forward unchanged into v2 — not D209 additions — and they cite the dated-terms pricing snapshot only, never a competing usage or cost fact.",
+      "required": [
+        "basis"
+      ],
+      "properties": {
+        "basis": {
+          "description": "Exactly ['list', 'marginal'] when the dated P0-4 terms price the known tokens (both figures stored), or the sole member ['unavailable'] otherwise.",
+          "enum": [
+            [
+              "list",
+              "marginal"
+            ],
+            [
+              "unavailable"
+            ]
+          ]
+        },
+        "usd_list": {
+          "description": "List-cost JSON number from list input/output/cache rates; present only with known cost.",
+          "type": "number",
+          "minimum": 0
+        },
+        "usd_marginal": {
+          "description": "Marginal-cost JSON number (same token quantities after the channel badge multiplier selected at the attempt timestamp); present only with known cost.",
+          "type": "number",
+          "minimum": 0
+        },
+        "pricing_snapshot_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Optional dated-terms pricing snapshot citation (null/absent when none is cited). Pre-existing accepted Phase 0 baseline field (P0-9a, accepted by D208), carried forward unchanged — not a D209 addition, and never a competing usage or cost fact."
+        },
+        "pricing_snapshot_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "SHA-256 of the cited dated-terms pricing snapshot (null/absent when none is cited). Pre-existing accepted Phase 0 baseline field (P0-9a, accepted by D208), carried forward unchanged — not a D209 addition, and never a competing usage or cost fact."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": [
+                  "list",
+                  "marginal"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "usd_list",
+              "usd_marginal"
+            ],
+            "properties": {
+              "usd_list": {
+                "type": "number",
+                "minimum": 0
+              },
+              "usd_marginal": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "basis"
+            ],
+            "properties": {
+              "basis": {
+                "const": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "usd_list": {
+                "type": "null"
+              },
+              "usd_marginal": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "eventRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One lee-llm-router ledger event, exactly the keys in src/lee_llm_router/events.py EVENT_FIELDS, in the shape build_event returns: all seventeen keys are present, with OPTIONAL_FIELDS (ts, host, harness, effort, authorized_by, snapshot_observed_at) filled by the builder and therefore required here, nullable where the builder allows None.",
+      "required": [
+        "ts",
+        "host",
+        "harness",
+        "crew",
+        "role",
+        "mode",
+        "worker_id",
+        "provider",
+        "model",
+        "effort",
+        "channel",
+        "headroom",
+        "reason",
+        "authorized_by",
+        "route_id",
+        "snapshot_observed_at",
+        "snapshot_stale"
+      ],
+      "properties": {
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "harness": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crew": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "description": "The resolution modes events.py documents: strict, flex, or bind.",
+          "enum": [
+            "strict",
+            "flex",
+            "bind"
+          ]
+        },
+        "worker_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headroom": {
+          "description": "Funding-headroom judgement wire values from src/lee_llm_router/availability.py Health.",
+          "enum": [
+            "healthy",
+            "degraded",
+            "likely_exhausted",
+            "exhausted",
+            "unknown"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorized_by": {
+          "description": "Only allowed when mode is 'bind' (events.BIND_MODE); build_event raises otherwise. Enforced by the allOf below.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "route_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot_observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snapshot_stale": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "authorized_by"
+            ],
+            "properties": {
+              "authorized_by": {
+                "type": "string"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "bind"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "agentOrchObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Agent-Orch model/effort performance observation, embedded from /home/lee/projects/auto-orch/src/auto_orch/performance.py OBSERVATION_SCHEMA with internal $refs re-scoped to $defs/aoProvenance, $defs/aoParticipant, and $defs/aoSeverityCounts. Shapes are otherwise verbatim.",
+      "required": [
+        "schema_version",
+        "idempotency_key",
+        "source",
+        "task",
+        "producer",
+        "reviewer",
+        "outcome",
+        "review"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mission",
+            "cycle_id",
+            "run_id",
+            "producer_step_id",
+            "producer_attempt",
+            "review_step_id",
+            "review_attempt"
+          ],
+          "properties": {
+            "mission": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cycle_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "producer_step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "producer_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "review_step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review_attempt": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "task": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "backlog_title",
+            "producer_role",
+            "reviewer_role"
+          ],
+          "properties": {
+            "backlog_title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "producer_role": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reviewer_role": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "producer": {
+          "$ref": "#/$defs/aoParticipant"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/aoParticipant"
+        },
+        "outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_status",
+            "run_passed",
+            "cycle_outcome",
+            "final_completion"
+          ],
+          "properties": {
+            "run_status": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_passed": {
+              "type": "boolean"
+            },
+            "cycle_outcome": {
+              "type": "string",
+              "minLength": 1
+            },
+            "final_completion": {
+              "type": "boolean"
+            }
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "final_verdict",
+            "first_review_clean",
+            "severity_threshold",
+            "severity_counts",
+            "finding_count",
+            "blocking_finding_count",
+            "review_cycles",
+            "repair_cycles",
+            "artifact_sha256s"
+          ],
+          "properties": {
+            "final_verdict": {
+              "enum": [
+                "pass",
+                "fail"
+              ]
+            },
+            "first_review_clean": {
+              "type": "boolean"
+            },
+            "severity_threshold": {
+              "enum": [
+                "Low",
+                "Medium",
+                "High",
+                "Critical"
+              ]
+            },
+            "severity_counts": {
+              "$ref": "#/$defs/aoSeverityCounts"
+            },
+            "finding_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocking_finding_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "review_cycles": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "repair_cycles": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "artifact_sha256s": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "aoParticipant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "executed",
+        "executed_attested"
+      ],
+      "properties": {
+        "requested": {
+          "$ref": "#/$defs/aoProvenance"
+        },
+        "executed": {
+          "$ref": "#/$defs/aoProvenance"
+        },
+        "executed_attested": {
+          "type": "boolean"
+        }
+      }
+    },
+    "aoProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harness",
+        "model",
+        "effort"
+      ],
+      "properties": {
+        "harness": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "aoSeverityCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Critical",
+        "High",
+        "Medium",
+        "Low"
+      ],
+      "properties": {
+        "Critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "High": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "Medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "Low": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "benchmarkRunPayload": {
+      "description": "The two benchmark_run payload shapes; exactly one validates (oneOf). crewRunRecord is the legacy Phase-0 crew-run envelope: it remains schema-valid solely so append-only ledger lines committed before the raw-v6 repair stay valid and readable, and no importer writes it any more — the benchmark v6 staffing-evidence sidecar provides neither a crew name nor a crews-file identity, so a crew_run envelope synthesized for a v6 import was fabricated evidence (D209), which is why benchmarkV6Run exists. Current benchmark imports write only benchmarkV6Run.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/crewRunRecord"
+        },
+        {
+          "$ref": "#/$defs/benchmarkV6Run"
+        }
+      ]
+    },
+    "benchmarkV6Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Raw benchmark v6 staffing-evidence facts for one CSV run, embedded from the verified sidecar/source-CSV join. It contains only facts the v6 sidecar and its SHA-256-pinned source CSV actually carry: there is no crew_name and no crews_file_sha256, because the v6 sidecar provides neither a crew name nor a crews-file identity (D209: preserved source facts, never invented evidence). No stage, role composition, route, channel, supervisor route, pricing snapshot, or canonical cost exists in this shape because the source records none.",
+      "required": [
+        "schema_version",
+        "sidecar_sha256",
+        "source_csv",
+        "generated_at",
+        "run_id",
+        "task_key",
+        "class",
+        "worker",
+        "usage",
+        "acceptance",
+        "elapsed_ms"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "benchmark.staffing-evidence/2",
+          "description": "The verified sidecar's own schema_version, copied verbatim."
+        },
+        "sidecar_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "SHA-256 of the verified v6 staffing-evidence sidecar itself. The sidecar is not a crews file and carries no crew identity; this digest asserts the evidence sidecar's bytes only."
+        },
+        "source_csv": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The sidecar's own source_csv block, verbatim (path as written in the sidecar); its sha256 was verified against the CSV bytes before import. The resolved filesystem path lives in the record provenance, not here.",
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The sidecar's generated_at, verbatim."
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The CSV row's run_id, verified present in the sidecar run_ids."
+        },
+        "task_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The sidecar task_key, verified equal to the CSV task_key."
+        },
+        "class": {
+          "$ref": "#/$defs/classRecord",
+          "description": "The sidecar row's validated class block, verbatim; mirrors the top-level class_record (D206: no class-to-model or class-to-route mapping)."
+        },
+        "worker": {
+          "$ref": "#/$defs/crewWorker",
+          "description": "The four join-verified worker fields (model, harness, effort, model_family) from the sidecar worker block, verified equal to the CSV row. Other sidecar worker labels (provider/vendor) are not carried: they are not needed for the join and would imply route semantics the source does not assert."
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The raw per-run usage receipt columns, preserved verbatim under their source column names with null for source null/empty. The top-level usage object carries the same counters under canonical names with basis 'provider_reported' and source 'benchmark v6 CSV usage_*_tokens'; this object preserves the source shape.",
+          "required": [
+            "usage_status",
+            "usage_input_tokens",
+            "usage_output_tokens",
+            "usage_cached_input_tokens",
+            "usage_reasoning_tokens",
+            "usage_total_tokens"
+          ],
+          "properties": {
+            "usage_status": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "description": "The CSV usage_status value (known | partial | null when the source recorded none). It marks omitted optional semantic detail, not estimated counters."
+            },
+            "usage_input_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "usage_output_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "usage_cached_input_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "usage_reasoning_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            },
+            "usage_total_tokens": {
+              "$ref": "#/$defs/tokenCounter"
+            }
+          }
+        },
+        "acceptance": {
+          "$ref": "#/$defs/acceptance",
+          "description": "The CSV row's acceptance value (normalized to the source's own accepted | not_accepted | unverified vocabulary); the top-level verdict maps it canonically."
+        },
+        "elapsed_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "The CSV row's elapsed_ms; null when the source records none. Mirrors the top-level wall_clock_ms."
+        },
+        "source_timestamps": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "Every timestamp column the CSV row supplies, verbatim; omitted entirely when the row supplies none. captured_at also appears as the top-level captured_at.",
+          "properties": {
+            "run_created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "launch_created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "started_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "finished_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "evaluation_created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "crewRunRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "AI Workforce Benchmark crew-run record, embedded verbatim from /home/lee/projects/ai-workforce-benchmark/config/crew-run.schema.json (minus its $schema/$id/title/description envelope). It keeps its own attempt_id; the unified top-level attempt_id mirrors it. LEGACY SHAPE: retained only so append-only ledger lines committed before the raw-v6 repair stay valid and readable; the benchmark v6 staffing-evidence sidecar provides neither a crew name nor a crews-file identity, so no current importer writes this envelope for a v6 import — such records are superseded, not rewritten (re-running the benchmark import appends benchmark:v6:<run_id> correction records).",
+      "deprecated": true,
+      "required": [
+        "schema_version",
+        "crew_name",
+        "crews_file_sha256",
+        "mission",
+        "attempt_id",
+        "stages",
+        "totals",
+        "final_acceptance",
+        "provenance"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "benchmark.crew-run/1"
+        },
+        "crew_name": {
+          "type": "string",
+          "enum": [
+            "mixed-flagship",
+            "mixed-balanced",
+            "mixed-economy",
+            "openai-flagship",
+            "openai-balanced",
+            "openai-economy",
+            "anthropic-flagship",
+            "anthropic-balanced",
+            "anthropic-economy",
+            "opencode-go-economy",
+            "opencode-go-balanced",
+            "gemini-flash-tiered",
+            "tri-vendor-workhorse",
+            "gemini-pro-crew"
+          ]
+        },
+        "crews_file_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "mission": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task_key",
+            "role_composition"
+          ],
+          "properties": {
+            "task_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "role_composition": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          }
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "minLength": 1
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crewStage"
+          },
+          "minItems": 1
+        },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cost_low_usd",
+            "cost_high_usd",
+            "elapsed_ms",
+            "stage_count",
+            "priced_stage_count",
+            "timed_stage_count"
+          ],
+          "properties": {
+            "cost_low_usd": {
+              "$ref": "#/$defs/money_or_null"
+            },
+            "cost_high_usd": {
+              "$ref": "#/$defs/money_or_null"
+            },
+            "elapsed_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "stage_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "priced_stage_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "timed_stage_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "final_acceptance": {
+          "$ref": "#/$defs/acceptance"
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "assembled_by",
+            "assembled_at",
+            "source_csv_sha256",
+            "notes"
+          ],
+          "properties": {
+            "assembled_by": {
+              "type": "string",
+              "minLength": 1
+            },
+            "assembled_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source_csv_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "notes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "money_or_null": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "acceptance": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "accepted",
+        "not_accepted",
+        "unverified",
+        null
+      ]
+    },
+    "crewWorker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "harness",
+        "effort",
+        "model_family"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "harness": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "crewStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "worker",
+        "run_id",
+        "cost_low_usd",
+        "cost_high_usd",
+        "elapsed_ms",
+        "acceptance",
+        "pricing_snapshot_ref",
+        "pricing_snapshot_sha256",
+        "evidence_status"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": [
+            "envision",
+            "ideate",
+            "reconsider",
+            "score",
+            "author"
+          ]
+        },
+        "worker": {
+          "$ref": "#/$defs/crewWorker"
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "cost_low_usd": {
+          "$ref": "#/$defs/money_or_null"
+        },
+        "cost_high_usd": {
+          "$ref": "#/$defs/money_or_null"
+        },
+        "elapsed_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "acceptance": {
+          "$ref": "#/$defs/acceptance"
+        },
+        "pricing_snapshot_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "pricing_snapshot_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "evidence_status": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "hand-assembled",
+            "unmeasured"
+          ]
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Router selection evidence for a live run-command attempt (D209 v2; phase1-contracts §Attempt record v2 placement and §run command). It preserves the catalog explain evidence — route ids and explain reasons — not a new selection judgment. Per D206 it contains no class metadata and creates no class-to-model or class-to-route mapping; 'explain_cheapest_eligible' records that the run command took the first eligible route in 'catalog explain --json' marginal-price order.",
+      "required": [
+        "basis",
+        "reason",
+        "explain_ref",
+        "excluded"
+      ],
+      "properties": {
+        "basis": {
+          "description": "explicit (--route) or explain_cheapest_eligible (role/class selection).",
+          "enum": [
+            "explicit",
+            "explain_cheapest_eligible"
+          ]
+        },
+        "reason": {
+          "description": "Selection reason as recorded by the run command.",
+          "type": "string",
+          "minLength": 1
+        },
+        "explain_ref": {
+          "description": "Reference to the 'catalog explain --json' evidence backing the selection.",
+          "type": "string",
+          "minLength": 1
+        },
+        "excluded": {
+          "description": "All excluded-route summaries: route ids and explain reasons only.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "route_id",
+              "reason"
+            ],
+            "properties": {
+              "route_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

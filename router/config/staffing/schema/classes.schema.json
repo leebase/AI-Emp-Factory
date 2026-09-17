@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/classes.schema.json",
+  "title": "Staffing class taxonomy",
+  "description": "Top-level taxonomy data plus a reusable classBlock definition for manifests and attempt records ($defs/classBlock, referencable as classes.schema.json#/$defs/classBlock). This schema declares exactly the five class value sets (role, oracle_type, domain_tags, size_band, language) and the deterministic don't-cheap-trial rule as inspectable data. Class metadata MUST NOT map directly to a preferred model or route: it may only (1) join production attempts to comparable benchmark evidence and (2) determine whether an unevidenced cheap trial is permitted. Any class-to-model or class-to-route property is forbidden here and is a High finding (D206); no model ids, routes, preferences, selection, or ranking are expressible in this schema. No taxonomy growth is possible: every value set is closed and unknown fields are rejected strictly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taxonomy_version",
+    "key_grammar",
+    "canonical_encoding",
+    "value_sets",
+    "cheap_trial_rule"
+  ],
+  "properties": {
+    "taxonomy_version": {
+      "description": "Stable nonempty identifier for this taxonomy revision.",
+      "$ref": "#/$defs/stableRef"
+    },
+    "key_grammar": {
+      "description": "The exact class key grammar, fixed by const so it cannot drift.",
+      "const": "role/oracle_type/domain_tags/size_band/language"
+    },
+    "canonical_encoding": {
+      "description": "The one canonical encoding for the domain-tags key segment, declared as data.",
+      "$ref": "#/$defs/canonicalEncoding"
+    },
+    "value_sets": {
+      "description": "Exactly the five class value sets, each closed (enum + exact cardinality). These arrays are the authoritative vocabularies; classBlock enums reference the same members.",
+      "$ref": "#/$defs/valueSets"
+    },
+    "cheap_trial_rule": {
+      "description": "The deterministic don't-cheap-trial rule as inspectable data: default allow, two pinned deny conditions, and the supervisor-override-as-attempt-evidence escape, recorded in either direction (it may allow or deny a cheap trial). Contains no model ids, routes, or preferences.",
+      "$ref": "#/$defs/cheapTrialRule"
+    }
+  },
+  "$defs": {
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stableRef": {
+      "type": "string",
+      "description": "A stable, nonempty identifier: starts with an alphanumeric character, then alphanumerics, dots, underscores, colons, or hyphens.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "canonicalEncoding": {
+      "description": "Canonical encoding of the domain-tags key segment. Tags are sorted ascending by codepoint, deduplicated, and joined by '+', which is unambiguous because no tag value contains '+'. The empty tag set is encoded as the literal string 'none', never as an empty segment (a doubled '/' such as impl/judge//s/python is invalid). Component fields remain authoritative for validation; if JSON Schema cannot express cross-field key equality (exact match of the key to the sorted, deduplicated tag join), enforcing it is loader work, not schema work.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segment_separator",
+        "tag_separator",
+        "tag_order",
+        "tag_dedup",
+        "empty_tags_segment",
+        "notes"
+      ],
+      "properties": {
+        "segment_separator": {
+          "description": "The single '/' separates the five key segments.",
+          "const": "/"
+        },
+        "tag_separator": {
+          "description": "The single '+' joins multiple domain tags inside the third segment; safe because no tag value contains '+'.",
+          "const": "+"
+        },
+        "tag_order": {
+          "description": "Multiple tags MUST appear in ascending codepoint (byte) order, e.g. persistence+security, never security+persistence.",
+          "const": "ascending codepoint"
+        },
+        "tag_dedup": {
+          "description": "Multiple tags MUST be deduplicated; a tag may not appear twice in the segment.",
+          "const": true
+        },
+        "empty_tags_segment": {
+          "description": "The empty tag set is encoded as the literal string 'none' in the third key segment; an empty segment (doubled slash) is never emitted.",
+          "const": "none"
+        },
+        "notes": {
+          "description": "Nonempty prose notes on the encoding, including the statement that component fields are authoritative and cross-field key equality is loader work if JSON Schema cannot express it.",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "valueSets": {
+      "description": "Exactly the five class value sets. Each array is closed by items enum and exact cardinality; no other values can be added (no taxonomy growth).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "oracle_type", "domain_tags", "size_band", "language"],
+      "properties": {
+        "role": {
+          "description": "Exactly the five role values.",
+          "type": "array",
+          "items": { "enum": ["impl", "plan", "review", "judge", "prose"] },
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true
+        },
+        "oracle_type": {
+          "description": "Exactly the four oracle_type values.",
+          "type": "array",
+          "items": { "enum": ["deterministic", "judge", "human", "none"] },
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "domain_tags": {
+          "description": "Exactly the seven domain tag values; the tag set may otherwise be empty in a classBlock.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "persistence",
+              "concurrency",
+              "security",
+              "authority",
+              "ui-browser",
+              "data-schema",
+              "infra-env"
+            ]
+          },
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true
+        },
+        "size_band": {
+          "description": "Exactly the four size band values.",
+          "type": "array",
+          "items": { "enum": ["xs", "s", "m", "l"] },
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "language": {
+          "description": "Exactly the nine language values.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "python",
+              "typescript",
+              "shell",
+              "c",
+              "go",
+              "sql",
+              "yaml-config",
+              "markdown",
+              "mixed"
+            ]
+          },
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true
+        }
+      }
+    },
+    "cheapTrialRule": {
+      "description": "The deterministic don't-cheap-trial rule as data. Semantics: start from default; if any deny condition's 'when' holds for a class, the unevidenced cheap trial is denied; a supervisor override, recorded as attempt evidence in either direction, may lift the denial (direction allow_cheap_trial) or impose one (direction deny_cheap_trial). Purely structural data: fields name classBlock components only, never models or routes. The deny_conditions array is pinned positionally: exactly the two declared conditions, in this order, with exact predicates — no additional, reordered, or renamed predicate can validate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_name", "default", "deny_conditions", "override"],
+      "properties": {
+        "rule_name": {
+          "const": "dont_cheap_trial"
+        },
+        "default": {
+          "description": "Classes that match no deny condition permit an unevidenced cheap trial.",
+          "const": "allow_cheap_trial"
+        },
+        "deny_conditions": {
+          "description": "Exactly the two deny conditions, ordered and const-pinned: position 0 is reason oracle_human_or_none with when {field: oracle_type, op: in, values: [human, none]}; position 1 is reason risk_tag_on_m_or_l with when {all_of: [{field: size_band, op: in, values: [m, l]}, {field: domain_tags, op: intersects, values: [persistence, concurrency, security, authority]}]}. Positions, reason labels, fields, operators, and value sets (including value order) are all fixed; items:false plus minItems/maxItems 2 forbids additional, reordered, or renamed predicates.",
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/denyOracleHumanOrNone" },
+            { "$ref": "#/$defs/denyRiskTagOnMOrL" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "override": {
+          "description": "The only way past a denial: a supervisor override, which is itself recorded as attempt evidence in either direction — it may lift a denial (allow an unevidenced cheap trial) or impose a denial on a class the default would allow. Risk gating only: it names no model, route, provider, or preference.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "direction", "description"],
+          "properties": {
+            "kind": {
+              "const": "supervisor_override_is_attempt_evidence"
+            },
+            "direction": {
+              "description": "Closed direction enum: the supervisor override, recorded as attempt evidence, either allows a cheap trial (lifting a denial) or denies one (imposing the gate on a class the default would permit). Both directions are equally recorded.",
+              "enum": ["allow_cheap_trial", "deny_cheap_trial"]
+            },
+            "description": {
+              "description": "Nonempty statement of how the override is recorded as attempt evidence and what either direction permits or forbids.",
+              "$ref": "#/$defs/nonemptyString"
+            }
+          }
+        }
+      }
+    },
+    "denyOracleHumanOrNone": {
+      "description": "Pinned deny condition at deny_conditions position 0: reason oracle_human_or_none iff field oracle_type, op in, values exactly [human, none]. Every field is const; no other predicate or reason can sit in this position.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when", "reason"],
+      "properties": {
+        "when": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field", "op", "values"],
+          "properties": {
+            "field": { "const": "oracle_type" },
+            "op": { "const": "in" },
+            "values": {
+              "description": "Exactly the two members human and none, in this order.",
+              "const": ["human", "none"]
+            }
+          }
+        },
+        "reason": { "const": "oracle_human_or_none" }
+      }
+    },
+    "denyRiskTagOnMOrL": {
+      "description": "Pinned deny condition at deny_conditions position 1: reason risk_tag_on_m_or_l iff when.all_of is exactly the two predicates size_band in [m, l] then domain_tags intersects [persistence, concurrency, security, authority], in this order, with items:false forbidding a third or renamed predicate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when", "reason"],
+      "properties": {
+        "when": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["all_of"],
+          "properties": {
+            "all_of": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["field", "op", "values"],
+                  "properties": {
+                    "field": { "const": "size_band" },
+                    "op": { "const": "in" },
+                    "values": {
+                      "description": "Exactly m and l, in this order.",
+                      "const": ["m", "l"]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["field", "op", "values"],
+                  "properties": {
+                    "field": { "const": "domain_tags" },
+                    "op": { "const": "intersects" },
+                    "values": {
+                      "description": "Exactly the four risk tags, in this order. ui-browser, data-schema, and infra-env are not risk tags and are forbidden here.",
+                      "const": ["persistence", "concurrency", "security", "authority"]
+                    }
+                  }
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "reason": { "const": "risk_tag_on_m_or_l" }
+      }
+    },
+    "classBlock": {
+      "description": "Reusable class metadata block for manifests and attempt records. All six fields are required and unknown fields are rejected: any class-to-model or class-to-route property (for example preferred_model, model_ref, route, provider) fails here per D206. The five component fields are authoritative for validation; class_key is the canonical string rendering (role/oracle_type/domain_tags/size_band/language with tags sorted ascending by codepoint, deduplicated, '+'-joined, and the empty set rendered as the literal 'none', never an empty segment). Cross-field equality between class_key and the components, plus sortedness/dedup of the key segment beyond what the pattern enforces, is loader work if JSON Schema cannot express it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class_key",
+        "role",
+        "oracle_type",
+        "domain_tags",
+        "size_band",
+        "language"
+      ],
+      "properties": {
+        "class_key": {
+          "description": "Canonical key string: role/oracle_type/domain_tags/size_band/language, with the domain-tags segment the literal 'none' for the empty tag set, or one or more tags from the closed set joined by '+' (sortedness and dedup of the segment are loader-enforced). An empty segment (doubled slash) is rejected.",
+          "type": "string",
+          "pattern": "^(impl|plan|review|judge|prose)/(deterministic|judge|human|none)/(none|(?:persistence|concurrency|security|authority|ui-browser|data-schema|infra-env)(?:\\+(?:persistence|concurrency|security|authority|ui-browser|data-schema|infra-env))*)/(xs|s|m|l)/(python|typescript|shell|c|sql|yaml-config|markdown|mixed)$"
+        },
+        "role": {
+          "description": "Class role; member of the closed role value set.",
+          "enum": ["impl", "plan", "review", "judge", "prose"]
+        },
+        "oracle_type": {
+          "description": "Oracle kind for this class; member of the closed oracle_type value set.",
+          "enum": ["deterministic", "judge", "human", "none"]
+        },
+        "domain_tags": {
+          "description": "Domain tags; the closed seven-tag vocabulary, unique members, possibly empty. This is the authoritative component for the third key segment.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "persistence",
+              "concurrency",
+              "security",
+              "authority",
+              "ui-browser",
+              "data-schema",
+              "infra-env"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "size_band": {
+          "description": "Size band; member of the closed size_band value set.",
+          "enum": ["xs", "s", "m", "l"]
+        },
+        "language": {
+          "description": "Primary language; member of the closed language value set.",
+          "enum": [
+            "python",
+            "typescript",
+            "shell",
+            "c",
+            "go",
+            "sql",
+            "yaml-config",
+            "markdown",
+            "mixed"
+          ]
+        }
+      }
+    }
+  }
+}

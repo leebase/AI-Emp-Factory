@@ -3,13 +3,13 @@
   "manifest_version": 1,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-17T18:12:02Z",
+  "built_at_utc": "2026-09-17T18:14:12Z",
   "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
   "built_from": "revision",
   "user_data_boundary": "user/",
   "allow_dirty": false,
   "component_count": 4,
-  "total_files_copied": 84,
+  "total_files_copied": 85,
   "components": [
     {
       "name": "router",
@@ -28,19 +28,24 @@
       "copied_paths": [
         {
           "from": "src/lee_llm_router (exported by lee-llm-router)",
-          "to": "router",
-          "files": 53
+          "to": "router/src/lee_llm_router",
+          "files": 47
         },
         {
           "from": "config/staffing/*.yaml",
           "to": "router/config/staffing",
           "files": 6
+        },
+        {
+          "from": "config/staffing/schema",
+          "to": "router/config/staffing/schema",
+          "files": 7
         }
       ],
       "copy_notes": [
         "copied byte-for-byte: @STAGE_WORKER_DIR@ and @*_BINARY@ must survive unresolved, or the tree is no longer relocatable (P1)"
       ],
-      "files_copied": 59
+      "files_copied": 60
     },
     {
       "name": "schemas",

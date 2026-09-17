@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/channels.schema.json",
+  "title": "Staffing channel catalog",
+  "description": "Top-level catalog of channels. This schema defines shape only; it encodes no fee, price, capacity, or policy values and no selection, ranking, probability, or pricing decisions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["channels"],
+  "properties": {
+    "channels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/channel" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "isoDate": {
+      "type": "string",
+      "description": "ISO 8601 calendar date (YYYY-MM-DD with month and day ranges enforced).",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "feeEntry": {
+      "description": "One dated monthly-fee entry. Value is numeric nonnegative USD or the literal string \"unknown\". No values are defined here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effective_from", "value"],
+      "properties": {
+        "effective_from": {
+          "description": "ISO date from which this fee entry is effective.",
+          "$ref": "#/$defs/isoDate"
+        },
+        "value": {
+          "description": "Monthly fee in USD as a nonnegative number, or the literal \"unknown\".",
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "string", "const": "unknown" }
+          ]
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel_id", "kind", "fee_usd_month", "windows", "harness_lock", "replacement_price_ref"],
+      "properties": {
+        "channel_id": {
+          "description": "Stable string identifier for this channel.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "kind": {
+          "description": "Exactly one channel kind.",
+          "type": "string",
+          "enum": ["subscription", "metered", "local"]
+        },
+        "fee_usd_month": {
+          "description": "Dated monthly fee information. Each entry has an effective_from date and a value (nonnegative number or \"unknown\"). Entries must not overlap in effect via ordering conventions outside this schema; shape only is defined here.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/feeEntry" },
+          "uniqueItems": true
+        },
+        "windows": {
+          "description": "Rate-limit windows applicable to this channel. Window ids are drawn only from the four contract ids.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["rolling-5h", "weekly", "monthly", "daily"]
+          },
+          "uniqueItems": true
+        },
+        "harness_lock": {
+          "description": "Harness identifiers this channel is locked to. May be empty; entries are unique nonempty strings.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonemptyString" },
+          "uniqueItems": true
+        },
+        "replacement_price_ref": {
+          "description": "Nonempty reference (catalog pointer) to the replacement price data. A reference string only; never a price value.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "instances": {
+          "description": "Optional independently addressable channel instances. uniqueItems enforces whole-object uniqueness; duplicate instance_id values are additionally rejected by the loader because this shape-only schema has no cross-item key constraint.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["instance_id", "credential_ref", "enabled"],
+            "properties": {
+              "instance_id": {
+                "description": "Stable identifier for this channel instance.",
+                "$ref": "#/$defs/nonemptyString"
+              },
+              "credential_ref": {
+                "description": "Nonempty reference to credential storage; never a literal secret.",
+                "$ref": "#/$defs/nonemptyString"
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/policy.schema.json",
+  "title": "Staffing policy catalog",
+  "description": "Top-level catalog of governance policy records: never-automatic rules, role-scoped model rules, role-to-class mappings, role floors, reviewer independence rules, and spend caps. This schema defines shape only: it encodes no model ids, roles, role classes, tiers, decisions, or dollar caps; those arrive later as cited data. Every authoritative policy rule requires a nonempty decision and a nonempty source citation. Class metadata MUST NOT map to a preferred model or route: it may only join comparable evidence and determine whether an unevidenced cheap trial is permitted (D206). A class-to-model or class-to-route mapping is forbidden here. Role-class governance is not task-class model preference: role_class entries state which governance class a role belongs to, never which model or route a task class should use. No selection, ranking, probabilities, or class preferences are expressible in this schema. Unknown fields are rejected strictly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "never_automatic",
+    "role_scoped",
+    "role_class",
+    "role_floors",
+    "reviewer_independence",
+    "spend_caps",
+    "reserve_fraction",
+    "crew_ordering_rule",
+    "human_escalation_cost_usd"
+  ],
+  "properties": {
+    "never_automatic": {
+      "description": "Rules declaring that a model/effort combination must never be used without an explicit, non-automatic decision. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/neverAutomaticRule" },
+      "uniqueItems": true
+    },
+    "role_scoped": {
+      "description": "Model rules scoped by role classes: which role classes are allowed and which are denied for a given model. The direction of scoping is model-to-roles only; nothing here may be read as class-to-model or class-to-route preference. Allowed and denied role-class sets are expected to be disjoint; disjointness across entries is a data-quality concern for the cited decision, not something this schema can enforce. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/roleScopedRule" },
+      "uniqueItems": true
+    },
+    "role_class": {
+      "description": "Role-to-class mapping entries: each entry assigns one governance role class to one role. This is role-to-class governance only. It MUST NOT be interpreted as a mapping from a class to a model or route, and it is not task-class model preference. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/roleClassEntry" },
+      "uniqueItems": true
+    },
+    "role_floors": {
+      "description": "Role-floor records shaped after the archived tier policy. Floor labels are opaque stable strings; no tier names, ordering, or values are enumerated or baked in here. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/roleFloorRecord" },
+      "uniqueItems": true
+    },
+    "reviewer_independence": {
+      "description": "Reviewer independence rules in one of exactly three archived shapes, expressed as a strict oneOf union: (A) worker separation with a different-family requirement or preference; (B) a scalar fresh-eyes mode; (C) a second-opinion mode. Mixing mode fields from different variants is forbidden. Every variant carries a nonempty decision and a nonempty source citation. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/reviewerIndependenceRule" },
+      "uniqueItems": true
+    },
+    "spend_caps": {
+      "description": "Nonnegative spend caps with a unit and a scope. Units and scopes are opaque stable strings; no unit or scope vocabulary is enumerated here. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/spendCap" },
+      "uniqueItems": true
+    },
+    "reserve_fraction": {
+      "description": "Subscription-channel reserve fraction (D216). A default value (0.10) applies to every subscription channel; per-channel overrides may override the default for a named channel_id. When a channel's remaining_fraction in any binding window is at or below its reserve, the channel's routes are excluded from automatic staffing with the reason `reserve: N% kept in the tank (D216)`. The reserve is a policy floor, distinct from the availability reader's health heuristics (`likely_exhausted` below 10%, which stays as a fail-safe). `bind` may still use a reserved channel only with `--authorized-by lee`. Every policy rule and reason must cite D216.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default"],
+      "properties": {
+        "default": {
+          "description": "Default reserve fraction (0.0 to 1.0) applied to every subscription channel that has no explicit per-channel override. D216 sets the default to 0.10.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "overrides": {
+          "description": "Optional per-channel overrides of the default reserve fraction. Each entry names a channel_id and its explicit reserve fraction (0.0 to 1.0). Anthropic and Gemini are explicitly 0.10 per D216. Array entries must be pairwise distinct by channel_id.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/reserveOverride" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "crew_ordering_rule": {
+      "description": "Named-crew ordering rule: within a role's array, order by marginal price at authoring time with prepaid-first as the tie-break; a human may pin otherwise with a stated reason (D215 ruling 3). Field is a single object with nonempty decision and source.",
+      "$ref": "#/$defs/crewOrderingRule"
+    },
+    "human_escalation_cost_usd": {
+      "description": "Terminal human-escalation cost in USD for staffing ladder arithmetic (D211 ruling 3). The current value is the Chief's placeholder; Lee may change it, so the schema fixes only the shape: a finite nonnegative number (JSON Schema numbers are finite by construction; the loader additionally rejects the non-finite floats YAML permits, such as .nan and .inf). The current committed value lives in policy.yaml, not here.",
+      "type": "number",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stableRef": {
+      "type": "string",
+      "description": "A stable, nonempty identifier: starts with an alphanumeric character, then alphanumerics, dots, underscores, colons, hyphens, or slashes (permitting qualified references such as slash-joined model ids). No whitespace is permitted.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "isoDate": {
+      "type": "string",
+      "description": "ISO 8601 calendar date (YYYY-MM-DD with month and day ranges enforced).",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "neverAutomaticRule": {
+      "description": "One never-automatic rule for a model, optionally narrowed to a specific effort level. When effort is absent, the rule is model-level and covers all effort levels of the model. Model and effort are opaque references; no ids are enumerated here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_ref", "decision", "source"],
+      "properties": {
+        "model_ref": {
+          "description": "Stable opaque reference to the model this rule covers.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "effort": {
+          "description": "Optional stable opaque effort level this rule covers (for example a named effort tier; any nonempty stable string, including a catch-all label, is data). Absent means the rule applies at the model level.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "decision": {
+          "description": "Nonempty statement of the decided rule (what is forbidden without an explicit non-automatic decision).",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this rule (decision record, archive note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "roleScopedRule": {
+      "description": "One model rule scoped by role classes with explicit allowed and denied class lists. Direction is model-to-roles; a class-to-model mapping is forbidden and cannot be expressed here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_ref", "allowed_role_classes", "denied_role_classes", "decision", "source"],
+      "properties": {
+        "model_ref": {
+          "description": "Stable opaque reference to the model being scoped.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "allowed_role_classes": {
+          "description": "Role classes explicitly allowed to use this model. Class keys are opaque stable strings; no class vocabulary is enumerated here.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableRef" },
+          "uniqueItems": true
+        },
+        "denied_role_classes": {
+          "description": "Role classes explicitly denied use of this model. Expected to be disjoint from allowed_role_classes.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableRef" },
+          "uniqueItems": true
+        },
+        "decision": {
+          "description": "Nonempty statement of the decided scoping rule.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this rule (decision record, archive note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "roleClassEntry": {
+      "description": "One role-to-class mapping entry. Governance classification of a role only; it must never be read as a preference of any model or route for a class.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_ref", "role_class", "decision", "source"],
+      "properties": {
+        "role_ref": {
+          "description": "Stable opaque reference to the role being classified.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "role_class": {
+          "description": "Stable opaque governance class assigned to the role. Class metadata may only join comparable evidence and determine whether an unevidenced cheap trial is permitted (D206); it may never select a model or route.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "decision": {
+          "description": "Nonempty statement of the decided classification.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this classification (decision record, archive note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "roleFloorRecord": {
+      "description": "One role-floor record shaped after the archived tier policy. The floor is an opaque stable label; no tier vocabulary, ordering, or numeric values are baked in here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_ref", "floor", "decision", "source"],
+      "properties": {
+        "role_ref": {
+          "description": "Stable opaque reference to the role the floor applies to.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "floor": {
+          "description": "Opaque stable floor label (tier-level name or equivalent) as decided by the archived tier policy; the value itself is cited data, not schema.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "effective_from": {
+          "description": "Optional ISO date from which this floor is effective. Archived floors without a recorded date simply omit this field.",
+          "$ref": "#/$defs/isoDate"
+        },
+        "decision": {
+          "description": "Nonempty statement of the decided floor.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this floor (archived tier policy, decision record, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "reviewerIndependenceRule": {
+      "description": "One reviewer independence rule. Exactly one of the three archived shapes must match: worker-separation/family preference, scalar fresh-eyes mode, or second-opinion mode. All variants require reviewer_ref, decision, and source.",
+      "type": "object",
+      "required": ["reviewer_ref", "decision", "source"],
+      "oneOf": [
+        {
+          "description": "Shape A: the faithful archived worker-separation shape with a required different-family preference.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer_ref", "not_same_worker_as", "prefer_different_family", "decision", "source"],
+          "properties": {
+            "reviewer_ref": { "$ref": "#/$defs/reviewerRef" },
+            "not_same_worker_as": {
+              "description": "Stable opaque reference to the worker this reviewer must not be (the not_same_worker_as constraint).",
+              "$ref": "#/$defs/stableRef"
+            },
+            "prefer_different_family": {
+              "description": "The archived rule requires preference for a different model family.",
+              "const": true
+            },
+            "decision": { "$ref": "#/$defs/independenceDecision" },
+            "source": { "$ref": "#/$defs/independenceSource" }
+          }
+        },
+        {
+          "description": "Shape B: the archived scalar fresh-eyes mode; no worker list or family field is present.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer_ref", "fresh_eyes_mode", "decision", "source"],
+          "properties": {
+            "reviewer_ref": { "$ref": "#/$defs/reviewerRef" },
+            "fresh_eyes_mode": {
+              "description": "The archived scalar fresh-eyes mode value; the only faithfully expressible value is the archived one.",
+              "type": "string",
+              "enum": ["fresh-eyes-preferred"]
+            },
+            "decision": { "$ref": "#/$defs/independenceDecision" },
+            "source": { "$ref": "#/$defs/independenceSource" }
+          }
+        },
+        {
+          "description": "Shape C: the archived second-opinion mode object; no worker list or family field is present.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer_ref", "second_opinion_mode", "decision", "source"],
+          "properties": {
+            "reviewer_ref": { "$ref": "#/$defs/reviewerRef" },
+            "second_opinion_mode": {
+              "description": "The archived second-opinion mode value; the only faithfully expressible value is the archived one.",
+              "type": "string",
+              "enum": ["different-family-than-author"]
+            },
+            "decision": { "$ref": "#/$defs/independenceDecision" },
+            "source": { "$ref": "#/$defs/independenceSource" }
+          }
+        }
+      ]
+    },
+    "reviewerRef": {
+      "description": "Stable opaque reference to the reviewer the rule applies to.",
+      "$ref": "#/$defs/stableRef"
+    },
+    "independenceDecision": {
+      "description": "Nonempty statement of the decided independence requirement.",
+      "$ref": "#/$defs/nonemptyString"
+    },
+    "independenceSource": {
+      "description": "Nonempty citation for this rule (decision record, archive note, or equivalent provenance).",
+      "$ref": "#/$defs/nonemptyString"
+    },
+    "reserveOverride": {
+      "description": "Per-channel override of the default reserve fraction (D216). Each entry names a single channel_id and the reserve fraction applied to it instead of the default.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel_id", "reserve_fraction"],
+      "properties": {
+        "channel_id": {
+          "description": "Stable opaque reference to the subscription channel this override applies to.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "reserve_fraction": {
+          "description": "Reserve fraction (0.0 to 1.0) for this channel. D216 sets Anthropic and Gemini to 0.10 explicitly.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "crewOrderingRule": {
+      "description": "Named-crew ordering rule recorded in policy.yaml (D215 ruling 3). A single required object with nonempty decision and source; not an array.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "source"],
+      "properties": {
+        "decision": {
+          "description": "Nonempty statement of the decided ordering rule.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this rule (decision record, archive note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "spendCap": {
+      "description": "One nonnegative spend cap with an opaque unit and scope. No unit, scope, or dollar-cap values are enumerated or baked in here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cap", "unit", "scope", "decision", "source"],
+      "properties": {
+        "cap": {
+          "description": "The cap value: a finite nonnegative number. Currency or unit interpretation comes from unit, not from this schema.",
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "description": "Opaque stable unit of the cap (for example a currency-and-period label); vocabulary is data, not schema.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "scope": {
+          "description": "Opaque stable scope the cap applies to (for example a role, channel, or global label); vocabulary is data, not schema.",
+          "$ref": "#/$defs/stableRef"
+        },
+        "effective_from": {
+          "description": "Optional ISO date from which this cap is effective.",
+          "$ref": "#/$defs/isoDate"
+        },
+        "decision": {
+          "description": "Nonempty statement of the decided cap.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "source": {
+          "description": "Nonempty citation for this cap (decision record, archive note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    }
+  }
+}

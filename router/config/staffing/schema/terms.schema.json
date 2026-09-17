@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lee-llm-router.local/config/staffing/schema/terms.schema.json",
+  "title": "Staffing terms catalog",
+  "description": "Top-level catalog of dated channel terms plus badge marginal multipliers. This schema defines shape only: it encodes no fee, price, capacity, or date values and no route selection, ranking, probability, or pricing decisions. Reference fields are opaque strings; how they are resolved (including behavior for unknown badges) is implementation, not schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["terms", "badge_multipliers"],
+  "properties": {
+    "terms": {
+      "description": "Dated terms entries, one per channel effective-date pair. Array entries must be pairwise distinct.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/termsEntry" },
+      "uniqueItems": true
+    },
+    "badge_multipliers": {
+      "description": "Marginal multipliers keyed by exactly the six contract badge keys.",
+      "$ref": "#/$defs/badgeMultipliers"
+    }
+  },
+  "$defs": {
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "isoDate": {
+      "type": "string",
+      "description": "ISO 8601 calendar date (YYYY-MM-DD with month and day ranges enforced).",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "finiteNonnegativeNumber": {
+      "type": "number",
+      "description": "A finite nonnegative number. JSON numbers are finite by definition; nonnegativity is enforced by minimum.",
+      "minimum": 0
+    },
+    "feeUsdMonth": {
+      "description": "Monthly fee in USD as a nonnegative number or the literal string \"unknown\". No actual fee values are defined here.",
+      "oneOf": [
+        { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        { "type": "string", "const": "unknown" }
+      ]
+    },
+    "termsEntry": {
+      "description": "Terms for one channel, effective from a given ISO date. Kind is one of the three supported term kinds; no channel identifiers are enumerated or baked in.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel_ref",
+        "kind",
+        "effective_from",
+        "fee_usd_month",
+        "source",
+        "decision_price_ref",
+        "reporting_price_ref"
+      ],
+      "properties": {
+        "channel_ref": {
+          "description": "Stable opaque reference to a channel defined elsewhere. A string only; never an inline channel definition or id enumeration.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "kind": {
+          "description": "Which of the supported term kinds applies: subscription, metered, or local.",
+          "type": "string",
+          "enum": ["subscription", "metered", "local"]
+        },
+        "effective_from": {
+          "description": "ISO date from which these terms are effective.",
+          "$ref": "#/$defs/isoDate"
+        },
+        "fee_usd_month": {
+          "description": "Monthly fee in USD (nonnegative number) or the literal \"unknown\".",
+          "$ref": "#/$defs/feeUsdMonth"
+        },
+        "source": {
+          "description": "Nonempty citation for these terms (publisher, page, retrieval note, or equivalent provenance).",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "decision_price_ref": {
+          "description": "Opaque string reference to the price series used for routing decisions. Distinct in purpose from reporting_price_ref; carries no price value.",
+          "$ref": "#/$defs/nonemptyString"
+        },
+        "reporting_price_ref": {
+          "description": "Opaque string reference to the list price used for reporting and cost accounting. Distinct in purpose from decision_price_ref; carries no price value.",
+          "$ref": "#/$defs/nonemptyString"
+        }
+      }
+    },
+    "badgeMultipliers": {
+      "description": "Marginal multipliers for badges. Exactly the six contract keys are allowed and all six are required; values are finite nonnegative numbers. Behavior for badges outside this set is implementation, not schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["COLD", "USE IT", "ON TRACK", "HOT", "TOO FAST", "NO DATA"],
+      "properties": {
+        "COLD": { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        "USE IT": { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        "ON TRACK": { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        "HOT": { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        "TOO FAST": { "$ref": "#/$defs/finiteNonnegativeNumber" },
+        "NO DATA": { "$ref": "#/$defs/finiteNonnegativeNumber" }
+      }
+    }
+  }
+}
