@@ -68,6 +68,6 @@ relocation tokens unresolved, so the tree works from wherever you cloned it.
 | `factory` | `/home/lee/projects/ai-employee-factory` | `d126a4f30b02d82e580565f193d289e975b5b697` | 12 |
 | `stage-workers` | `/home/lee/projects/auto-orch` | `8f40e2ba2a9081a257a1769fa52f61815203fc86` | 4 |
 
-Built 2026-09-17T18:15:03Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
+Built 2026-09-17T18:18:00Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
 `user/` is owned by the user: the builder seeds it only when it is absent and
 never overwrites anything inside it.

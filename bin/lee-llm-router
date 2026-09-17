@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Entry point for the vendored staffing router.
+#
+# The distribution ships the router as source rather than an installed package,
+# so this shim supplies what `pip install` would normally put on PATH: the
+# import root, the project-local interpreter, and the module entry point.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(dirname "$here")"
+python="$root/.venv/bin/python"
+[ -x "$python" ] || python="$(command -v python3)"
+export PYTHONPATH="$root/router/src${PYTHONPATH:+:$PYTHONPATH}"
+export LEE_LLM_ROUTER_STAGE_WORKER_DIR="${LEE_LLM_ROUTER_STAGE_WORKER_DIR:-$root/stage-workers}"
+exec "$python" -m lee_llm_router.doctor "$@"

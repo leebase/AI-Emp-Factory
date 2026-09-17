@@ -9,25 +9,23 @@
   "permission": {
     "edit": {
       "*": "deny",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/journal/**": "allow",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/outputs/**": "allow",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/state/**": "allow",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/decisions.md": "allow",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/AGENTS.md": "deny",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/README.md": "deny",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/opencode.json": "deny",
-      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/state/assignment.json": "deny",
-      "ai-employee-factory/employees/ordinary/AGENTS.md": "deny",
-      "auto-orch/**": "deny",
-      "ai-employee/**": "deny",
-      "chief-of-staff/**": "deny",
-      "ai-employee-factory/hiring/**": "deny",
-      "ai-employee-factory/employees/ordinary/factory-records-clerk/**": "deny",
-      "ai-employee-factory/employees/ordinary/documentation-steward/**": "deny",
-      "ai-employee-factory/employees/ordinary/document-publisher/**": "deny",
-      "linux-utilities-autonomous/**": "allow",
-      "linux-utilities-autonomous/.git/**": "deny",
-      "lee-llm-router/**": "deny"
+      "chief/journal/**": "allow",
+      "chief/outputs/**": "allow",
+      "chief/state/**": "allow",
+      "chief/decisions.md": "allow",
+      "chief/AGENTS.md": "deny",
+      "chief/README.md": "deny",
+      "chief/opencode.json": "deny",
+      "chief/state/assignment.json": "deny",
+      "factory/employees/ordinary/AGENTS.md": "deny",
+      "factory/hiring/**": "deny",
+      "factory/employees/ordinary/factory-records-clerk/**": "deny",
+      "factory/employees/ordinary/documentation-steward/**": "deny",
+      "factory/employees/ordinary/document-publisher/**": "deny",
+      "user/**": "allow",
+      "router/**": "deny",
+      "schemas/**": "deny",
+      "stage-workers/**": "deny"
     },
     "bash": {
       "*": "deny",
@@ -55,8 +53,11 @@
       "git commit*": "deny",
       "git push*": "deny",
       "git checkout*": "deny",
-      "git reset*": "deny"
+      "git reset*": "deny",
+      "bin/lee-llm-router *": "allow",
+      "./bin/lee-llm-router *": "allow"
     },
     "task": "deny"
-  }
+  },
+  "_distribution_note": "Paths are relative to the distribution root. Open a session with the working directory set to the root, not to chief/, so these rules resolve."
 }
