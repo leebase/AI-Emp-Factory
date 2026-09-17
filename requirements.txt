@@ -1,0 +1,10 @@
+# AI-Emp-Factory runtime dependencies. Requires Python >= 3.10.
+#
+#   python3 -m venv .venv
+#   ./.venv/bin/pip install -r requirements.txt
+#
+# Then put router/src on PYTHONPATH; the router package lives there and imports
+# itself absolutely as lee_llm_router.
+pyyaml>=6.0
+jsonschema>=4.26,<5
+httpx>=0.25
