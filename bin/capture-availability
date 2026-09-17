@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Capture a real availability snapshot from this host's authenticated providers.
+
+Availability is operator and provider state. It is established on the deployed
+system, never shipped and never invented: a fabricated snapshot would cause the
+router to select routes against quota that does not exist, and to record that
+fiction in its ledger.
+
+Currently supports Anthropic via the Claude Code CLI's own `/usage` query. A
+provider that is not signed in is reported as unavailable with its reason, not
+defaulted to healthy.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+USAGE_LINE = re.compile(
+    r"^(?P<bucket>.+?):\s*(?P<used>\d+)%\s*used(?:\s*·\s*resets\s*(?P<resets>.+))?$"
+)
+
+
+def capture_anthropic() -> tuple[list[dict], str | None]:
+    """Return (subscription rows, error). Never fabricates a row."""
+    try:
+        proc = subprocess.run(
+            ["claude", "-p", "/usage", "--output-format", "json"],
+            capture_output=True, text=True, timeout=90,
+        )
+    except FileNotFoundError:
+        return [], "claude CLI not found on PATH"
+    except subprocess.TimeoutExpired:
+        return [], "claude CLI timed out"
+    if proc.returncode != 0:
+        return [], f"claude exited {proc.returncode}"
+    try:
+        result = (json.loads(proc.stdout) or {}).get("result") or ""
+    except json.JSONDecodeError:
+        return [], "claude returned output that is not JSON"
+    if not result.strip():
+        return [], "claude returned no usage text (not signed in?)"
+
+    rows: list[dict] = []
+    for raw in result.splitlines():
+        line = raw.strip()
+        match = USAGE_LINE.match(line)
+        if not match:
+            continue
+        used = float(match.group("used"))
+        rows.append({
+            "provider": "Anthropic/Claude",
+            "bucket": match.group("bucket").strip(),
+            "used_pct": used,
+            "remaining_pct": round(100.0 - used, 2),
+            "resets_at_text": (match.group("resets") or "").strip() or None,
+            "status": "OBSERVED",
+            "source": "claude -p /usage --output-format json",
+        })
+    if not rows:
+        return [], "claude usage text carried no parseable bucket lines"
+    return rows, None
+
+
+def main() -> int:
+    dest = Path(
+        os.environ.get("LEE_LLM_ROUTER_AVAILABILITY_FILE")
+        or Path.home() / ".local/state/lee-llm-router/availability"
+        / (os.uname().nodename + ".json")
+    )
+    rows, error = capture_anthropic()
+    snapshot = {
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "host": os.uname().nodename,
+        "capture": "bin/capture-availability",
+        "subscriptions": rows,
+        "unavailable": ([] if error is None
+                        else [{"provider": "Anthropic/Claude", "reason": error}]),
+    }
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+
+    print(f"  wrote {dest}")
+    for row in rows:
+        print(f"    {row['bucket']}: {row['used_pct']}% used, "
+              f"{row['remaining_pct']}% remaining")
+    if error:
+        print(f"  NOT CAPTURED: Anthropic/Claude — {error}", file=sys.stderr)
+        print("  No row was invented for it.", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

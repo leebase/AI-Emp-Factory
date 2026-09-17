@@ -3,13 +3,13 @@
   "manifest_version": 1,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-17T18:18:00Z",
+  "built_at_utc": "2026-09-17T18:33:46Z",
   "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
   "built_from": "revision",
   "user_data_boundary": "user/",
   "allow_dirty": false,
   "component_count": 4,
-  "total_files_copied": 85,
+  "total_files_copied": 101,
   "components": [
     {
       "name": "router",
@@ -40,12 +40,18 @@
           "from": "config/staffing/schema",
           "to": "router/config/staffing/schema",
           "files": 7
+        },
+        {
+          "from": "config/staffing/pricing",
+          "to": "router/config/staffing/pricing",
+          "files": 16
         }
       ],
       "copy_notes": [
-        "copied byte-for-byte: @STAGE_WORKER_DIR@ and @*_BINARY@ must survive unresolved, or the tree is no longer relocatable (P1)"
+        "copied byte-for-byte: @STAGE_WORKER_DIR@ and @*_BINARY@ must survive unresolved, or the tree is no longer relocatable (P1)",
+        "B1. Versioned reference pricing with provenance: dated snapshots, each with a sha256 sidecar the router verifies before use. terms.yaml pins the series. This is shippable precisely because it is reference data with an as-of date, not operator state. Without it terms.py raises and every route is excluded as 'pricing unavailable' \u2014 found by deploying, not by building."
       ],
-      "files_copied": 60
+      "files_copied": 76
     },
     {
       "name": "schemas",
