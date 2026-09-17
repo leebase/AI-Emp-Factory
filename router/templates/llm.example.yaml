@@ -1,0 +1,96 @@
+# Lee LLM Router — example configuration
+# Run `lee-llm-router template` to print this file.
+# Copy to config/llm.yaml and fill in your values.
+#
+# All api_key_env values are *environment variable names*, not secrets.
+# The router reads os.environ[api_key_env] at call time.
+
+llm:
+  # Role used when the caller does not specify one.
+  default_role: planner
+
+  providers:
+    openrouter:
+      type: openrouter_http
+      base_url: https://openrouter.ai/api/v1
+      # Set OPENROUTER_API_KEY in your environment
+      api_key_env: OPENROUTER_API_KEY
+
+    codex_local:
+      type: codex_cli
+      command: codex
+      model_flag: --model
+      output_flag: --output-last-message
+
+    gemini_local:
+      type: gemini_cli
+      command: gemini
+
+    claude_code_local:
+      type: claude_code_cli
+      command: claude
+
+    # Optional pi-style harness wrapper with a structured JSON contract
+    # pi_harness:
+    #   type: codex_cli
+    #   command: python3
+    #   args:
+    #     - ./scripts/pi_harness.py
+    #   model_flag: null
+    #   output_flag: null
+    #   response_format: json
+    #   text_field: output_text
+
+    codex_subscription:
+      type: openai_codex_subscription_http
+      base_url: https://chatgpt.com/backend-api/codex
+      # Option A: explicit token env (recommended for CI)
+      # access_token_env: OPENAI_CODEX_ACCESS_TOKEN
+      # Option B: no env var needed if `codex login` populated ~/.codex/auth.json
+
+    mock:
+      type: mock
+      # Optional: override the default echo text
+      # response_text: "static response for testing"
+
+  roles:
+    planner:
+      provider: openrouter
+      model: openai/gpt-4o
+      temperature: 0.2
+      json_mode: false
+      timeout: 60.0
+      # On failure, try codex_local before giving up (Phase 2)
+      fallback_providers: [codex_local]
+
+    extractor:
+      provider: openrouter
+      model: openai/gpt-4o-mini
+      temperature: 0.0
+      json_mode: true
+      max_tokens: 2048
+
+    local:
+      provider: codex_local
+      model: o3
+
+    gemini_research:
+      provider: gemini_local
+      model: gemini-2.5-pro
+      timeout: 90.0
+
+    claude_research:
+      provider: claude_code_local
+      model: claude-3.7-sonnet
+      timeout: 90.0
+
+    # pi_local:
+    #   provider: pi_harness
+    #   model: o3
+
+    codex_sub:
+      provider: codex_subscription
+      model: gpt-5.3-codex
+
+    test:
+      provider: mock

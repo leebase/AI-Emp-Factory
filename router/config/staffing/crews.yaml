@@ -1,0 +1,470 @@
+# Named crew catalog — P0-3k3 (six governed crews) + P0-3k4a1 (one-crew
+# retry: anthropic-flagship appended after larger packets timed out on the
+# GLM/Pi/OpenRouter routes) + P0-3k4a2a (one-crew append: anthropic-balanced,
+# the Anthropic-only default) + P0-3k4a2b (one-crew append: anthropic-economy,
+# the Anthropic-only economy set) + one-crew append (opencode-go-economy, the
+# live OpenCode Go economy set) + one-crew append (opencode-go-balanced, the
+# live OpenCode Go balanced set) + one-crew append (gemini-flash-tiered, the
+# live all-Gemini Flash tiered set) + P0-3k4d (one-crew append:
+# tri-vendor-workhorse, the live best-of-breed tri-vendor set) + P0-3k4e
+# (one-crew append: gemini-pro-crew, the live all-Gemini 3.1 Pro / 3.8 Flash
+# set) + P0-3l (one-crew append: sol-low-glm-pi, Lee's example interactive
+# crew, repaired to the Chief round-10 block per chief-answers-10/D203) +
+# one-crew append (luna-sol, the Chief round-10 interactive crew per
+# chief-answers-10/D204/D205): fourteen governed crews + two interactive
+# crews, Chief round 10 shape, plus the reserved auto computed placeholder
+# (P0-3n one-record append, Chief round 9, chief-answers-9/D86/D87).
+#
+# Shape authority: config/staffing/schema/crews.schema.json (P0-1, round 9
+# governed branch) and docs/staffing/phase0-contracts.md §Named crew. The
+# interactive crew carries the round 9 interactive branch: supervisor_route,
+# worker_routes, reviewer_route, and a nonempty escalation_ladder
+# (chief-answers-9, D86/D87).
+# Sixteen crews are encoded: the live auto-orch mixed-* and openai-*
+# sets (mixed-flagship, mixed-balanced, mixed-economy, openai-flagship,
+# openai-balanced, openai-economy), the live anthropic-flagship
+# (P0-3k4a1), the live anthropic-balanced (P0-3k4a2a), the live
+# anthropic-economy (P0-3k4a2b), the live opencode-go-economy
+# (one-crew append), the live opencode-go-balanced (one-crew
+# append), the live gemini-flash-tiered (one-crew append), the
+# live tri-vendor-workhorse (P0-3k4d one-crew append), and the
+# live gemini-pro-crew (P0-3k4e one-crew append), plus the interactive
+# sol-low-glm-pi (P0-3l one-crew append) and the interactive luna-sol
+# (one-crew append). All fourteen live governed crews in the source are
+# encoded.
+#
+# Live source (read, not forked — architecture recommendation §4 "Keep
+# as-is"): /home/lee/projects/auto-orch/config/crews.yaml. Each crew cites
+# its exact source block in evidence_ref. Every live governed crew in the
+# source is encoded here.
+#
+# Round 9 governed contract (applied identically to all fourteen crews):
+#
+# 1. kind governed; source auto-orch/crews.yaml; crew_name is the live crew
+#    id verbatim; supervisor {kind: engine, owner: auto-orch}; escalation
+#    not-recorded; authority chief; evidence_ref. No supervisor_route,
+#    reviewer_route, or escalation_ladder is ever invented for a governed
+#    crew.
+# 2. worker_routes carries the five recorded stage bindings under their
+#    live role names (envision, ideate, reconsider, score, author — the
+#    router's STAGE_NAMES). Every live stage in these fourteen crews binds
+#    exactly one worker, so each role is a one-element array. Worker id ->
+#    route_id via the route catalog: each live worker id deduplicates (by
+#    the route tuple) to exactly one row in config/staffing/routes.yaml;
+#    exactly one such row (opencode-opencode-go-mimo-v2-5-opencode-go,
+#    serving opencode-go-economy's ideate and score stages and its governed
+#    judge, and opencode-go-balanced's score stage) carries status:
+#    unpriced, which chief-answers-6 requires to stay
+#    in the catalog and map — exclusion from eligibility, not from the
+#    catalog — so it is encoded, not omitted.
+# 3. The governed primary/reviewer/judge role names are encoded in
+#    worker_routes only when the live governed entry itself supplies enough
+#    (harness, model, effort) evidence to resolve exactly one existing
+#    route — never by inferring an effort from another role or another
+#    crew. In all fourteen live blocks the governed entries record only
+#    (harness[, model[, effort]]) and nothing beyond those fields. The
+#    first six blocks and
+#    anthropic-balanced (P0-3k4a2a) and anthropic-economy (P0-3k4a2b)
+#    encode no governed role;
+#    anthropic-flagship (P0-3k4a1) encodes exactly one:
+#      - {harness: codex_cli} / {harness: claude_code} judge entries record
+#        no model at all, so no route tuple exists without inventing one.
+#      - gpt-5.6-sol on codex|openai-sub has three catalog routes (high,
+#        medium, low); gpt-5.6-terra on codex|openai-sub has two (high,
+#        medium); gpt-5.6-luna on codex|openai-sub has two (max, xhigh);
+#        claude-opus-5 and claude-sonnet-5 on claude|anthropic-sub each
+#        have two (high, medium). No governed model resolves uniquely in
+#        those six blocks, so every governed primary/reviewer/judge role
+#        there is omitted and the omission is recorded in evidence_ref.
+#      - anthropic-flagship's governed reviewer {harness: claude_code,
+#        model: claude-fable-5-1} is the sole unique resolution:
+#        claude-fable-5-1|claude|anthropic-sub has exactly one catalog
+#        route (claude-claude-fable-5-1-high-anthropic-sub), so the
+#        reviewer is encoded with no effort inference. Its primary
+#        (claude-opus-5, two routes) and judge (no model) are omitted as
+#        ambiguous, recorded in evidence_ref.
+#      - opencode-go-economy (one-crew append) encodes all three governed
+#        roles: primary {harness: opencode_cli, model:
+#        opencode-go/deepseek-v4-flash}, reviewer {harness: opencode_cli,
+#        model: opencode-go/deepseek-v4-pro}, and judge {harness:
+#        opencode_cli, model: opencode-go/mimo-v2.5}. Harness opencode_cli
+#        maps to channel opencode-go (channels.yaml harness_lock) under the
+#        catalog harness spelling opencode, and each Go model id has exactly
+#        one catalog row (opencode-opencode-go-deepseek-v4-flash-opencode-go
+#        and opencode-opencode-go-deepseek-v4-pro-opencode-go, both active;
+#        opencode-opencode-go-mimo-v2-5-opencode-go, status: unpriced per
+#        D207 and mapped per chief-answers-6), so each role resolves by full
+#        route with no effort inference and no governed role is omitted.
+#      - opencode-go-balanced (one-crew append) encodes all three governed
+#        roles: primary {harness: opencode_cli, model:
+#        opencode-go/qwen3.7-plus}, reviewer {harness: opencode_cli,
+#        model: opencode-go/deepseek-v4-pro}, and judge {harness:
+#        opencode_cli, model: opencode-go/minimax-m2.7}. Harness
+#        opencode_cli maps to channel opencode-go (channels.yaml
+#        harness_lock) under the catalog harness spelling opencode, and
+#        each Go model id has exactly one catalog row
+#        (opencode-opencode-go-qwen3-7-plus-opencode-go,
+#        opencode-opencode-go-deepseek-v4-pro-opencode-go, and
+#        opencode-opencode-go-minimax-m2-7-opencode-go, all active), so
+#        each role resolves by full route with no effort inference and no
+#        governed role is omitted.
+#      - gemini-flash-tiered (one-crew append) encodes all three governed
+#        roles: primary {harness: antigravity_cli, model:
+#        gemini-3.8-flash-high}, reviewer {harness: antigravity_cli, model:
+#        gemini-3.8-flash-medium}, and judge {harness: antigravity_cli,
+#        model: gemini-3.8-flash-low}. Harness antigravity_cli maps to
+#        channel gemini-sub (channels.yaml harness_lock) under the catalog
+#        harness spelling agy (the router mapping for the
+#        antigravity_stage_worker.py harness), and each flash model string
+#        encodes its effort dial so each model id has exactly one catalog
+#        row (agy-gemini-3-8-flash-high-gemini-sub,
+#        agy-gemini-3-8-flash-medium-gemini-sub, and
+#        agy-gemini-3-8-flash-low-gemini-sub, all active), so each role
+#        resolves by full route with no effort inference and no governed
+#        role is omitted.
+#      - tri-vendor-workhorse (P0-3k4d one-crew append) encodes exactly one
+#        governed role: primary {harness: antigravity_cli, model:
+#        gemini-3.8-flash-high} resolves to exactly one catalog route
+#        (agy-gemini-3-8-flash-high-gemini-sub, status: active) — each
+#        flash model string encodes its effort dial, so the model id alone
+#        determines the row with no effort inference from another role or
+#        crew. Governed reviewer {harness: codex_cli, model: gpt-5.6-sol}
+#        records no effort and gpt-5.6-sol|codex|openai-sub resolves to
+#        three catalog routes (high, medium, low), so it is omitted.
+#        Governed judge {harness: claude_code, model: claude-sonnet-5}
+#        records no effort and claude-sonnet-5|claude|anthropic-sub
+#        resolves to two routes (high, medium), so it is omitted; both
+#        omissions are recorded in evidence_ref.
+#      - gemini-pro-crew (P0-3k4e one-crew append) encodes exactly two
+#        governed roles: primary {harness: antigravity_cli, model:
+#        gemini-3.8-flash-high} resolves to exactly one catalog route
+#        (agy-gemini-3-8-flash-high-gemini-sub, status: active) and judge
+#        {harness: antigravity_cli, model: gemini-3.8-flash-medium}
+#        resolves to exactly one catalog route
+#        (agy-gemini-3-8-flash-medium-gemini-sub, status: active) — each
+#        flash model string encodes its effort dial, so the model id alone
+#        determines the row with no effort inference from another role or
+#        crew. Governed reviewer {harness: antigravity_cli, model:
+#        gemini-3.1-pro, effort: low} records effort: low, and the only
+#        catalog row carrying model gemini-3.1-pro
+#        (agy-gemini-3-1-pro-gemini-sub, status: active) carries effort:
+#        null (the live antigravity gemini-3.1-pro command sets no effort
+#        env var), so the full live tuple (gemini-3.1-pro, low, agy,
+#        gemini-sub) resolves to zero existing routes; mapping the
+#        null-effort row would discard the recorded live effort, so no
+#        effort is inferred and the role is omitted; the omission is
+#        recorded in evidence_ref.
+# 4. Harness -> channel follows the committed catalogs (codex_cli ->
+#    openai-sub, claude_code -> anthropic-sub, opencode_cli -> opencode-go,
+#    antigravity_cli -> gemini-sub per channels.yaml harness_lock and the
+#    routes.yaml harness spellings);
+#    the counts above are taken at that fixed (harness, channel).
+# 5. authority: chief for every crew — this packet is the delegated
+#    migration of live governed crews into the staffing catalog
+#    (D204/D205 sprint plan; authority enum lee|chief|policy per
+#    chief-answers-1).
+
+crews:
+  # ---- mixed: cross-vendor judgment (live recommended default set) ----
+  - crew_id: mixed-flagship
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: mixed-flagship
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-sol-high-openai-sub]
+      ideate: [claude-claude-fable-5-1-high-anthropic-sub]
+      reconsider: [codex-gpt-5-6-sol-medium-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-sol-high-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.mixed-flagship — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: claude_code, model: claude-opus-5} records no effort and claude-opus-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-opus-5-high-anthropic-sub, claude-claude-opus-5-medium-anthropic-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: codex_cli, model: gpt-5.6-sol} records no effort and gpt-5.6-sol|codex|openai-sub resolves to three routes (high, medium, low), so it is omitted. Governed judge {harness: codex_cli} records no model, so no route tuple exists; omitted. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  - crew_id: mixed-balanced
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: mixed-balanced
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-sol-medium-openai-sub]
+      ideate: [claude-claude-opus-5-high-anthropic-sub]
+      reconsider: [codex-gpt-5-6-luna-max-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-sol-high-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.mixed-balanced — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: claude_code, model: claude-opus-5} records no effort and claude-opus-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-opus-5-high-anthropic-sub, claude-claude-opus-5-medium-anthropic-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: codex_cli, model: gpt-5.6-sol} records no effort and gpt-5.6-sol|codex|openai-sub resolves to three routes (high, medium, low), so it is omitted. Governed judge {harness: claude_code, model: claude-sonnet-5} records no effort and claude-sonnet-5|claude|anthropic-sub resolves to two routes (claude-claude-sonnet-5-high-anthropic-sub, claude-claude-sonnet-5-medium-anthropic-sub), so it is omitted. Supervisor is the engine; the live file records no escalation, so escalation: not-recorded."
+
+  - crew_id: mixed-economy
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: mixed-economy
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-luna-max-openai-sub]
+      ideate: [claude-claude-sonnet-5-high-anthropic-sub]
+      reconsider: [codex-gpt-5-6-luna-max-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-sol-medium-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.mixed-economy — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: codex_cli, model: gpt-5.6-luna} records no effort and gpt-5.6-luna|codex|openai-sub resolves to two catalog routes (codex-gpt-5-6-luna-max-openai-sub, codex-gpt-5-6-luna-xhigh-openai-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: claude_code, model: claude-sonnet-5} records no effort and claude-sonnet-5|claude|anthropic-sub resolves to two routes (high, medium), so it is omitted. Governed judge {harness: claude_code} records no model, so no route tuple exists; omitted. Supervisor is the engine; the live file records no escalation, so escalation: not-recorded."
+
+  # ---- openai: single-vendor (live blocks; model diversity substitutes for
+  # vendor diversity — reviewer model differs from producer model) ----
+  - crew_id: openai-flagship
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: openai-flagship
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-sol-high-openai-sub]
+      ideate: [codex-gpt-5-6-terra-high-openai-sub]
+      reconsider: [codex-gpt-5-6-sol-medium-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-sol-high-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.openai-flagship — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: codex_cli, model: gpt-5.6-sol} records no effort and gpt-5.6-sol|codex|openai-sub resolves to three catalog routes (high, medium, low), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: codex_cli, model: gpt-5.6-terra} records no effort and gpt-5.6-terra|codex|openai-sub resolves to two routes (codex-gpt-5-6-terra-high-openai-sub, codex-gpt-5-6-terra-medium-openai-sub), so it is omitted. Governed judge {harness: codex_cli} records no model, so no route tuple exists; omitted. Supervisor is the engine; the live file records no escalation, so escalation: not-recorded."
+
+  - crew_id: openai-balanced
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: openai-balanced
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-sol-medium-openai-sub]
+      ideate: [codex-gpt-5-6-terra-high-openai-sub]
+      reconsider: [codex-gpt-5-6-luna-max-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-sol-high-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.openai-balanced — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: codex_cli, model: gpt-5.6-sol} records no effort and gpt-5.6-sol|codex|openai-sub resolves to three catalog routes (high, medium, low), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: codex_cli, model: gpt-5.6-terra} records no effort and gpt-5.6-terra|codex|openai-sub resolves to two routes (codex-gpt-5-6-terra-high-openai-sub, codex-gpt-5-6-terra-medium-openai-sub), so it is omitted. Governed judge {harness: codex_cli} records no model, so no route tuple exists; omitted. Supervisor is the engine; the live file records no escalation, so escalation: not-recorded."
+
+  - crew_id: openai-economy
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: openai-economy
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-luna-max-openai-sub]
+      ideate: [codex-gpt-5-6-terra-medium-openai-sub]
+      reconsider: [codex-gpt-5-6-luna-max-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [codex-gpt-5-6-terra-high-openai-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.openai-economy — delegated migration, chief authority; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple. Governed primary {harness: codex_cli, model: gpt-5.6-luna} records no effort and gpt-5.6-luna|codex|openai-sub resolves to two catalog routes (codex-gpt-5-6-luna-max-openai-sub, codex-gpt-5-6-luna-xhigh-openai-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: codex_cli, model: gpt-5.6-terra} records no effort and gpt-5.6-terra|codex|openai-sub resolves to two routes (codex-gpt-5-6-terra-high-openai-sub, codex-gpt-5-6-terra-medium-openai-sub), so it is omitted. Governed judge {harness: codex_cli} records no model, so no route tuple exists; omitted. Supervisor is the engine; the live file records no escalation, so escalation: not-recorded."
+
+  # ---- anthropic: single-vendor (P0-3k4a1 one-crew retry: appended after
+  # larger packets timed out on the GLM/Pi/OpenRouter routes) ----
+  - crew_id: anthropic-flagship
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: anthropic-flagship
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [claude-claude-opus-5-high-anthropic-sub]
+      ideate: [claude-claude-fable-5-1-high-anthropic-sub]
+      reconsider: [claude-claude-opus-5-medium-anthropic-sub]
+      score: [claude-claude-sonnet-5-high-anthropic-sub]
+      author: [claude-claude-opus-5-high-anthropic-sub]
+      reviewer: [claude-claude-fable-5-1-high-anthropic-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.anthropic-flagship — delegated migration, chief authority (P0-3k4a1 one-crew retry after larger packets timed out on GLM/Pi/OpenRouter); the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple (claude_opus5_high -> claude-claude-opus-5-high-anthropic-sub, claude_fable51_high -> claude-claude-fable-5-1-high-anthropic-sub, claude_opus5_medium -> claude-claude-opus-5-medium-anthropic-sub, claude_sonnet5_high -> claude-claude-sonnet-5-high-anthropic-sub). Governed reviewer {harness: claude_code, model: claude-fable-5-1} records no effort, but claude-fable-5-1|claude|anthropic-sub resolves to exactly one catalog route (claude-claude-fable-5-1-high-anthropic-sub), so the role is encoded with no effort inferred from another role or crew. Governed primary {harness: claude_code, model: claude-opus-5} records no effort and claude-opus-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-opus-5-high-anthropic-sub, claude-claude-opus-5-medium-anthropic-sub), so no effort is inferred and the role is omitted. Governed judge {harness: claude_code} records no model, so no route tuple exists; omitted. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- anthropic: single-vendor (P0-3k4a2a one-crew append: the
+  # Anthropic-only default; same governed shape, no governed role encodable) ----
+  - crew_id: anthropic-balanced
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: anthropic-balanced
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [claude-claude-sonnet-5-high-anthropic-sub]
+      ideate: [claude-claude-opus-5-high-anthropic-sub]
+      reconsider: [claude-claude-sonnet-5-medium-anthropic-sub]
+      score: [claude-claude-sonnet-5-medium-anthropic-sub]
+      author: [claude-claude-opus-5-high-anthropic-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.anthropic-balanced — delegated migration, chief authority (P0-3k4a2a); the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple (claude_sonnet5_high -> claude-claude-sonnet-5-high-anthropic-sub, claude_opus5_high -> claude-claude-opus-5-high-anthropic-sub, claude_sonnet5_medium -> claude-claude-sonnet-5-medium-anthropic-sub). Governed primary {harness: claude_code, model: claude-opus-5} records no effort and claude-opus-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-opus-5-high-anthropic-sub, claude-claude-opus-5-medium-anthropic-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: claude_code, model: claude-sonnet-5} records no effort and claude-sonnet-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-sonnet-5-high-anthropic-sub, claude-claude-sonnet-5-medium-anthropic-sub), so it is omitted. Governed judge {harness: claude_code} records no model, so no route tuple exists; omitted. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- anthropic: single-vendor (P0-3k4a2b one-crew append: the
+  # Anthropic-only economy set; same governed shape, no governed role encodable) ----
+  - crew_id: anthropic-economy
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: anthropic-economy
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [claude-claude-sonnet-5-medium-anthropic-sub]
+      ideate: [claude-claude-sonnet-5-high-anthropic-sub]
+      reconsider: [claude-claude-sonnet-5-medium-anthropic-sub]
+      score: [claude-claude-sonnet-5-medium-anthropic-sub]
+      author: [claude-claude-sonnet-5-high-anthropic-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.anthropic-economy — delegated migration, chief authority (P0-3k4a2b); the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple (claude_sonnet5_medium -> claude-claude-sonnet-5-medium-anthropic-sub, claude_sonnet5_high -> claude-claude-sonnet-5-high-anthropic-sub). Governed primary {harness: claude_code, model: claude-sonnet-5} records no effort and claude-sonnet-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-sonnet-5-high-anthropic-sub, claude-claude-sonnet-5-medium-anthropic-sub), so no effort is inferred from another role or crew and the role is omitted. Governed reviewer {harness: claude_code, model: claude-opus-5} records no effort and claude-opus-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-opus-5-high-anthropic-sub, claude-claude-opus-5-medium-anthropic-sub), so it is omitted. Governed judge {harness: claude_code} records no model, so no route tuple exists; omitted. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- opencode-go: open-weight economy set (one-crew append: the live
+  # cost-first Go crew; ideate/score and the governed judge ride the one
+  # unpriced Go route, mapped per chief-answers-6) ----
+  - crew_id: opencode-go-economy
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: opencode-go-economy
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      ideate: [opencode-opencode-go-mimo-v2-5-opencode-go]
+      reconsider: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      score: [opencode-opencode-go-mimo-v2-5-opencode-go]
+      author: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      primary: [opencode-opencode-go-deepseek-v4-flash-opencode-go]
+      reviewer: [opencode-opencode-go-deepseek-v4-pro-opencode-go]
+      judge: [opencode-opencode-go-mimo-v2-5-opencode-go]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.opencode-go-economy — delegated migration, chief authority (one-crew append); the five stage bindings map one-to-one to catalog rows in config/staffing/routes.yaml by exact route tuple (opencode_go_qwen37_plus -> opencode-opencode-go-qwen3-7-plus-opencode-go, opencode_go_mimo_v25 -> opencode-opencode-go-mimo-v2-5-opencode-go); the opencode_go_mimo_v25 row carries status: unpriced per D207 (chief-answers-2 §3, amended by chief-answers-6: the pinned Zen pricing snapshot lists no opencode-go/mimo-v2.5 entry), and chief-answers-6 rules unpriced routes stay in the catalog and map — exclusion from eligibility, not from the catalog — so the ideate and score bindings are encoded, not omitted. Governed primary {harness: opencode_cli, model: opencode-go/deepseek-v4-flash} records no effort and opencode-go/deepseek-v4-flash|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-deepseek-v4-flash-opencode-go, status: active), so it is encoded with no effort inferred from another role or crew. Governed reviewer {harness: opencode_cli, model: opencode-go/deepseek-v4-pro} records no effort and opencode-go/deepseek-v4-pro|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-deepseek-v4-pro-opencode-go, status: active); the distinct Pi row pi-deepseek-v4-pro-opencode-go carries the different model string deepseek-v4-pro and is not a second match, so uniqueness holds. Governed judge {harness: opencode_cli, model: opencode-go/mimo-v2.5} records no effort and opencode-go/mimo-v2.5|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-mimo-v2-5-opencode-go, status: unpriced per D207 and mapped per chief-answers-6), so it is encoded with no effort inferred; no governed role is omitted in this block. Harness opencode_cli maps to channel opencode-go per channels.yaml harness_lock under the catalog harness spelling opencode. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- opencode-go: open-weight balanced set (one-crew append: the live
+  # medium Go crew; its score stage rides the one unpriced Go route, mapped
+  # per chief-answers-6) ----
+  - crew_id: opencode-go-balanced
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: opencode-go-balanced
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      ideate: [opencode-opencode-go-minimax-m2-7-opencode-go]
+      reconsider: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      score: [opencode-opencode-go-mimo-v2-5-opencode-go]
+      author: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      primary: [opencode-opencode-go-qwen3-7-plus-opencode-go]
+      reviewer: [opencode-opencode-go-deepseek-v4-pro-opencode-go]
+      judge: [opencode-opencode-go-minimax-m2-7-opencode-go]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.opencode-go-balanced — delegated migration, chief authority (one-crew append); the five stage bindings map one-to-one to catalog rows in config/staffing/routes.yaml by exact route tuple (opencode_go_qwen37_plus -> opencode-opencode-go-qwen3-7-plus-opencode-go, opencode_go_minimax_m27 -> opencode-opencode-go-minimax-m2-7-opencode-go, opencode_go_mimo_v25 -> opencode-opencode-go-mimo-v2-5-opencode-go); the opencode_go_mimo_v25 row carries status: unpriced per D207 (chief-answers-2 §3, amended by chief-answers-6: the pinned Zen pricing snapshot lists no opencode-go/mimo-v2.5 entry), and chief-answers-6 rules unpriced routes stay in the catalog and map — exclusion from eligibility, not from the catalog — so the score binding is encoded, not omitted. Governed primary {harness: opencode_cli, model: opencode-go/qwen3.7-plus} records no effort and opencode-go/qwen3.7-plus|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-qwen3-7-plus-opencode-go, status: active), so it is encoded with no effort inferred from another role or crew. Governed reviewer {harness: opencode_cli, model: opencode-go/deepseek-v4-pro} records no effort and opencode-go/deepseek-v4-pro|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-deepseek-v4-pro-opencode-go, status: active); the Pi row pi-deepseek-v4-pro-opencode-go carries a different model string (deepseek-v4-pro) and a different harness (pi), so it is not a second match and uniqueness holds. Governed judge {harness: opencode_cli, model: opencode-go/minimax-m2.7} records no effort and opencode-go/minimax-m2.7|opencode|opencode-go resolves to exactly one catalog route (opencode-opencode-go-minimax-m2-7-opencode-go, status: active), so it is encoded with no effort inferred; no governed role is omitted in this block. Harness opencode_cli maps to channel opencode-go per channels.yaml harness_lock under the catalog harness spelling opencode. Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- gemini: single-vendor flash tiered set (one-crew append: the live
+  # all-Gemini crew; high for envision/author, medium for reconsider, low
+  # for score; every governed role resolves uniquely by full route) ----
+  - crew_id: gemini-flash-tiered
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: gemini-flash-tiered
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [agy-gemini-3-8-flash-high-gemini-sub]
+      ideate: [agy-gemini-3-8-flash-high-gemini-sub]
+      reconsider: [agy-gemini-3-8-flash-medium-gemini-sub]
+      score: [agy-gemini-3-8-flash-low-gemini-sub]
+      author: [agy-gemini-3-8-flash-high-gemini-sub]
+      primary: [agy-gemini-3-8-flash-high-gemini-sub]
+      reviewer: [agy-gemini-3-8-flash-medium-gemini-sub]
+      judge: [agy-gemini-3-8-flash-low-gemini-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.gemini-flash-tiered — delegated migration, chief authority (one-crew append); the five stage bindings map one-to-one to catalog rows in config/staffing/routes.yaml by exact route tuple (antigravity_gemini38_flash_high -> agy-gemini-3-8-flash-high-gemini-sub, antigravity_gemini38_flash_medium -> agy-gemini-3-8-flash-medium-gemini-sub, antigravity_gemini38_flash_low -> agy-gemini-3-8-flash-low-gemini-sub); the antigravity_gemini37_* backward-compatibility aliases execute byte-identical gemini-3.8-flash commands and deduplicate to the same route tuples, so they add no rows. Governed primary {harness: antigravity_cli, model: gemini-3.8-flash-high} records no effort and gemini-3.8-flash-high|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-high-gemini-sub, status: active) — each flash model string encodes its effort dial, so the model id alone determines the row with no effort inference from another role or crew — so it is encoded. Governed reviewer {harness: antigravity_cli, model: gemini-3.8-flash-medium} records no effort and gemini-3.8-flash-medium|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-medium-gemini-sub, status: active), so it is encoded. Governed judge {harness: antigravity_cli, model: gemini-3.8-flash-low} records no effort and gemini-3.8-flash-low|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-low-gemini-sub, status: active), so it is encoded; no governed role is omitted in this block. Harness antigravity_cli maps to channel gemini-sub per channels.yaml harness_lock under the catalog harness spelling agy (the router mapping for the antigravity_stage_worker.py harness). Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- tri-vendor: best-of-breed cross-vendor set (P0-3k4d one-crew append:
+  # the live best-of-breed crew; Gemini 3.8 Flash High executes governed
+  # implementation; the governed reviewer and judge are ambiguous in the
+  # route catalog and are omitted) ----
+  - crew_id: tri-vendor-workhorse
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: tri-vendor-workhorse
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [codex-gpt-5-6-sol-high-openai-sub]
+      ideate: [claude-claude-opus-5-high-anthropic-sub]
+      reconsider: [codex-gpt-5-6-sol-medium-openai-sub]
+      score: [codex-gpt-5-6-luna-max-openai-sub]
+      author: [claude-claude-opus-5-high-anthropic-sub]
+      primary: [agy-gemini-3-8-flash-high-gemini-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.tri-vendor-workhorse — delegated migration, chief authority (P0-3k4d one-crew append); exact live block: stages: {envision: codex_sol_high, ideate: claude_opus5_high, reconsider: codex_sol_medium, score: codex_luna_max, author: claude_opus5_high}, governed: {primary: {harness: antigravity_cli, model: gemini-3.8-flash-high}, reviewer: {harness: codex_cli, model: gpt-5.6-sol}, judge: {harness: claude_code, model: claude-sonnet-5}}; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple (codex_sol_high -> codex-gpt-5-6-sol-high-openai-sub, claude_opus5_high -> claude-claude-opus-5-high-anthropic-sub, codex_sol_medium -> codex-gpt-5-6-sol-medium-openai-sub, codex_luna_max -> codex-gpt-5-6-luna-max-openai-sub; the author stage reuses claude_opus5_high). Governed primary {harness: antigravity_cli, model: gemini-3.8-flash-high} records no effort and gemini-3.8-flash-high|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-high-gemini-sub, status: active), so it is encoded with no effort inferred from another role or crew. Governed reviewer {harness: codex_cli, model: gpt-5.6-sol} records no effort and gpt-5.6-sol|codex|openai-sub resolves to three catalog routes (codex-gpt-5-6-sol-high-openai-sub, codex-gpt-5-6-sol-medium-openai-sub, codex-gpt-5-6-sol-low-openai-sub), so no effort is inferred and the role is omitted. Governed judge {harness: claude_code, model: claude-sonnet-5} records no effort and claude-sonnet-5|claude|anthropic-sub resolves to two catalog routes (claude-claude-sonnet-5-high-anthropic-sub, claude-claude-sonnet-5-medium-anthropic-sub), so no effort is inferred and the role is omitted. Harness antigravity_cli maps to channel gemini-sub per channels.yaml harness_lock under the catalog harness spelling agy (the router mapping for the antigravity_stage_worker.py harness). Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- gemini: single-vendor Pro/Flash set (P0-3k4e one-crew append: the
+  # live all-Gemini crew; 3.1 Pro for envision/reconsider, Flash high for
+  # ideate/author, Flash low for score; the governed primary and judge
+  # resolve uniquely by full route, the governed reviewer is omitted) ----
+  - crew_id: gemini-pro-crew
+    kind: governed
+    source: auto-orch/crews.yaml
+    crew_name: gemini-pro-crew
+    supervisor: {kind: engine, owner: auto-orch}
+    worker_routes:
+      envision: [agy-gemini-3-1-pro-gemini-sub]
+      ideate: [agy-gemini-3-8-flash-high-gemini-sub]
+      reconsider: [agy-gemini-3-1-pro-gemini-sub]
+      score: [agy-gemini-3-8-flash-low-gemini-sub]
+      author: [agy-gemini-3-8-flash-high-gemini-sub]
+      primary: [agy-gemini-3-8-flash-high-gemini-sub]
+      judge: [agy-gemini-3-8-flash-medium-gemini-sub]
+    escalation: not-recorded
+    authority: chief
+    evidence_ref: "/home/lee/projects/auto-orch/config/crews.yaml crews.gemini-pro-crew — delegated migration, chief authority (P0-3k4e one-crew append); exact live block: stages: {envision: antigravity_gemini31_pro, ideate: antigravity_gemini38_flash_high, reconsider: antigravity_gemini31_pro, score: antigravity_gemini38_flash_low, author: antigravity_gemini38_flash_high}, governed: {primary: {harness: antigravity_cli, model: gemini-3.8-flash-high}, reviewer: {harness: antigravity_cli, model: gemini-3.1-pro, effort: low}, judge: {harness: antigravity_cli, model: gemini-3.8-flash-medium}}; the five stage bindings map one-to-one to active rows in config/staffing/routes.yaml by exact route tuple (antigravity_gemini31_pro -> agy-gemini-3-1-pro-gemini-sub, antigravity_gemini38_flash_high -> agy-gemini-3-8-flash-high-gemini-sub, antigravity_gemini38_flash_low -> agy-gemini-3-8-flash-low-gemini-sub; the envision and reconsider stages reuse antigravity_gemini31_pro and the ideate and author stages reuse antigravity_gemini38_flash_high). Governed primary {harness: antigravity_cli, model: gemini-3.8-flash-high} records no effort and gemini-3.8-flash-high|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-high-gemini-sub, status: active) — each flash model string encodes its effort dial, so the model id alone determines the row with no effort inference from another role or crew — so it is encoded. Governed judge {harness: antigravity_cli, model: gemini-3.8-flash-medium} records no effort and gemini-3.8-flash-medium|agy|gemini-sub resolves to exactly one catalog route (agy-gemini-3-8-flash-medium-gemini-sub, status: active), so it is encoded. Governed reviewer {harness: antigravity_cli, model: gemini-3.1-pro, effort: low} records effort: low, and the only catalog row carrying model gemini-3.1-pro (agy-gemini-3-1-pro-gemini-sub, status: active) carries effort: null — the live antigravity_gemini31_pro command sets no effort env var — so the full live tuple (gemini-3.1-pro, low, agy, gemini-sub) resolves to zero existing routes; no low-effort gemini-3.1-pro row exists to map and mapping the null-effort row would discard the recorded live effort, so no effort is inferred and the role is omitted. Harness antigravity_cli maps to channel gemini-sub per channels.yaml harness_lock under the catalog harness spelling agy (the router mapping for the antigravity_stage_worker.py harness). Supervisor is the engine (supervisor: {kind: engine, owner: auto-orch}); the live file records no escalation, so escalation: not-recorded."
+
+  # ---- interactive: Lee's example crew (P0-3l one-crew append, repaired to the
+  # authoritative Chief round-10 block, chief-answers-10/D203: Sol Low supervisor
+  # and plan; impl GLM 5.3 Flash via Pi over OpenCode Go with the OpenRouter row
+  # as same-role fallback; review DeepSeek V4 Pro via Pi over OpenCode Go with
+  # the V4 Flash OpenRouter row as fallback; Astra Low judge; escalation impl
+  # GLM -> Luna XHigh via Pi -> Sol High via Codex, stop before never-automatic) ----
+  - crew_id: sol-low-glm-pi
+    kind: interactive
+    governed_ref: sol-low-glm-pi
+    supervisor_route: codex-gpt-5-6-sol-low-openai-sub
+    worker_routes:
+      # D215 ruling 1: prepaid-first (opencode-go) supersedes D204 round-14 order (openrouter first) for this interactive crew
+      impl: [pi-glm-5-3-flash-opencode-go, pi-z-ai-glm-5-3-flash-openrouter]
+      plan: [codex-gpt-5-6-sol-low-openai-sub]
+      review: [pi-deepseek-v4-pro-opencode-go, pi-deepseek-deepseek-v4-flash-openrouter]
+      judge: [codex-gpt-6-astra-low-openai-sub]
+    reviewer_route: pi-deepseek-v4-pro-opencode-go
+    escalation_ladder:
+      - pi-z-ai-glm-5-3-flash-openrouter
+      - pi-glm-5-3-flash-opencode-go
+      - pi-gpt-5-6-luna-xhigh-openai-sub
+      - codex-gpt-5-6-sol-high-openai-sub
+    authority: chief
+    evidence_ref: "Chief round 14 authoritative repair of the round 10 block (chief authority, chief-answers-14, D86/D87: impl order is exactly-metered OpenRouter first, Go same-role fallback); evidence: ai-workforce-benchmark exports/staffing-evidence-v5-20260908.json (GLM/DeepSeek accepted on the tested implementation packets; Pi cheapest harness on the one three-harness comparison). Route ids are the catalog's; role-route values are ordered arrays — first is primary, later entries are same-role fallbacks used only when the earlier route's channel is exhausted or unknown (the reason is recorded per attempt). Phase 0 ordering note (Chief round 14): in Phase 0 a named crew's order is a human choice, and for a crew that also runs governed the exactly-metered OpenRouter route goes first because agent-orch's accounting fails closed on unaccounted spend and the Go subscription has no per-run receipt; the Go route is the same-role fallback; Phase 2's auto placeholder will order by marginal price and headroom, which is where 'Go first when COLD' belongs. Every binding maps by exact route tuple to one existing active row in config/staffing/routes.yaml, no route invented: gpt-5.6-sol|codex|low|openai-sub -> codex-gpt-5-6-sol-low-openai-sub (supervisor and plan); z-ai/glm-5.3-flash|pi|openrouter -> pi-z-ai-glm-5-3-flash-openrouter (impl primary, escalation rung 1); glm-5.3-flash|pi|opencode-go -> pi-glm-5-3-flash-opencode-go (impl same-role fallback, escalation rung 2); opencode-go/deepseek-v4-pro|pi|opencode-go -> pi-deepseek-v4-pro-opencode-go (review primary and reviewer_route); deepseek/deepseek-v4-flash|pi|openrouter -> pi-deepseek-deepseek-v4-flash-openrouter (review fallback); gpt-6-astra|codex|low|openai-sub -> codex-gpt-6-astra-low-openai-sub (judge); gpt-5.6-luna|pi|xhigh|openai-sub -> pi-gpt-5-6-luna-xhigh-openai-sub (escalation rung 3); gpt-5.6-sol|codex|high|openai-sub -> codex-gpt-5-6-sol-high-openai-sub (escalation rung 4) -> stop, never-automatic above."
+
+  # ---- interactive: the Chief round-10 second interactive crew (one-crew
+  # append, per chief-answers-10/D204/D205: Luna XHigh via Pi for coding and
+  # planning (v5 recommendation); DeepSeek V4 Flash via Pi over OpenRouter for
+  # review; Astra Low judge; escalation impl Luna XHigh via Pi -> Sol High via
+  # Codex, stop before never-automatic) ----
+  - crew_id: luna-sol
+    kind: interactive
+    supervisor_route: codex-gpt-5-6-sol-low-openai-sub
+    worker_routes:
+      impl: [pi-gpt-5-6-luna-xhigh-openai-sub]
+      plan: [pi-gpt-5-6-luna-xhigh-openai-sub]
+      review: [pi-deepseek-deepseek-v4-flash-openrouter]
+      judge: [codex-gpt-6-astra-low-openai-sub]
+    reviewer_route: pi-deepseek-deepseek-v4-flash-openrouter
+    escalation_ladder:
+      - pi-gpt-5-6-luna-xhigh-openai-sub
+      - codex-gpt-5-6-sol-high-openai-sub
+    authority: chief
+    evidence_ref: "Chief round 10 authoritative block, chief authority (chief-answers-10/D204/D205); evidence: ai-workforce-benchmark exports/staffing-evidence-v5-20260908.json (v5 recommendation: Luna XHigh via Pi for coding and planning; Astra Low for review). Route ids are the catalog's; role-route values are ordered arrays — first is primary, later entries are same-role fallbacks used only when the earlier route's channel is exhausted or unknown (the reason is recorded per attempt). Every binding maps by exact route tuple to one existing active row in config/staffing/routes.yaml, no route invented: gpt-5.6-sol|codex|low|openai-sub -> codex-gpt-5-6-sol-low-openai-sub (supervisor); gpt-5.6-luna|pi|xhigh|openai-sub -> pi-gpt-5-6-luna-xhigh-openai-sub (impl and plan, escalation rung 1); deepseek/deepseek-v4-flash|pi|openrouter -> pi-deepseek-deepseek-v4-flash-openrouter (review and reviewer_route); gpt-6-astra|codex|low|openai-sub -> codex-gpt-6-astra-low-openai-sub (judge); gpt-5.6-sol|codex|high|openai-sub -> codex-gpt-5-6-sol-high-openai-sub (escalation rung 2) -> stop, never-automatic above."
+
+  # ---- reserved placeholder: the computed auto block (P0-3n one-record
+  # append, Chief round 9, chief-answers-9/D86/D87: kind interactive,
+  # authority policy, computed true; route-bearing fields unset because the
+  # staffing system computes them at run time — none is invented) ----
+  - crew_id: auto
+    kind: interactive
+    computed: true
+    authority: policy
+    evidence_ref: "Chief round 9 reserved computed placeholder (chief-answers-9/D86/D87, plan amended: 'The auto placeholder is kind: interactive, authority: policy, with its routes left unset and marked computed'); authority policy means the staffing system's choice. supervisor_route, worker_routes, reviewer_route, and escalation_ladder are all unset and computed: true — the staffing system computes them at run time and no route, ladder, or governed field is invented; lee pins or overrides and chief chooses under delegated managerial authority (attempt-record supervisor contract unchanged)."

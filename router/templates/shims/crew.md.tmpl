@@ -1,0 +1,51 @@
+---
+description: Compute one staffing decision with lee-llm-router staff and show the block (resolve-only)
+{frontmatter_extra}---
+<!-- lee-llm-router shim v1 sha256={marker_hash} -->
+
+Arguments as supplied: `$ARGUMENTS`
+
+Parsing rule:
+- If the argument is `auto` (default when absent or empty), use Form 1.
+- Otherwise, the argument is the crew name `NAME` (Form 2).
+- OpenCode hands the argument over as one quoted string: strip one pair of surrounding quotes first.
+
+This command resolves staffing only. It has exactly two forms, chosen from
+the arguments:
+
+1. The argument is the literal word `auto` (`/crew auto`):
+
+   - From the task the user has already planned in this conversation,
+     determine the canonical class role (one of `impl`, `plan`, `review`,
+     `judge`, `prose`) and the canonical five-segment class string
+     `role/oracle_type/domain_tags/size_band/language` (for example
+     `impl/deterministic/none/s/python`). Use only facts already established
+     in the plan; never fabricate task facts. If the role or class cannot be
+     determined from the plan, ask the user instead of guessing.
+   - Run exactly:
+
+     lee-llm-router staff --mode auto --role <role> --class <class>
+
+2. The argument is a crew name (`/crew NAME`):
+
+   - Run exactly:
+
+     lee-llm-router staff --mode crew <name>
+
+Then display the staffing block the command printed to stdout to the user,
+verbatim.
+
+This is resolve-only. Do not dispatch anything, do not invoke any provider
+binary (claude, codex, agy, opencode, omp, pi, or any other), do not start a
+provider run, and do not write, edit, or delete any file.
+
+Finally, offer — do not execute — the dispatch command for the user to run
+themselves, filling the placeholders from the staffing block and the packet
+file the user wants to send:
+
+lee-llm-router run --role <role> --class <class> --packet <path>
+
+and, when the staffing block names a selected route, offer the explicit
+route form instead:
+
+lee-llm-router run --route <route-id> --role <role> --class <class> --packet <path>

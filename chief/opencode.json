@@ -1,0 +1,62 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_comment": "Three authorities, enforced separately (D309/D310). The runtime root is wider than any one of them so all three are physically reachable; this policy decides what may actually be done in each. Wide root is implementation sequence, not the security model. Reachability must not imply authority: a workspace this session can see but no grant names is denied here.",
+  "_home": "ai-employee-factory/employees/ordinary/dev-chief-of-staff",
+  "_assignment_workspace_refs": [
+    "linux-utilities-autonomous (capability: supervise, grant_ref: decision:chief-of-staff/D311)"
+  ],
+  "_ungranted_but_reachable": "every other path under the runtime root \u2014 including lee-llm-router (the control plane: dispatch and observe only, never write), auto-orch, ai-employee, chief-of-staff and the rest of ai-employee-factory",
+  "permission": {
+    "edit": {
+      "*": "deny",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/journal/**": "allow",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/outputs/**": "allow",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/state/**": "allow",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/decisions.md": "allow",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/AGENTS.md": "deny",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/README.md": "deny",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/opencode.json": "deny",
+      "ai-employee-factory/employees/ordinary/dev-chief-of-staff/state/assignment.json": "deny",
+      "ai-employee-factory/employees/ordinary/AGENTS.md": "deny",
+      "auto-orch/**": "deny",
+      "ai-employee/**": "deny",
+      "chief-of-staff/**": "deny",
+      "ai-employee-factory/hiring/**": "deny",
+      "ai-employee-factory/employees/ordinary/factory-records-clerk/**": "deny",
+      "ai-employee-factory/employees/ordinary/documentation-steward/**": "deny",
+      "ai-employee-factory/employees/ordinary/document-publisher/**": "deny",
+      "linux-utilities-autonomous/**": "allow",
+      "linux-utilities-autonomous/.git/**": "deny",
+      "lee-llm-router/**": "deny"
+    },
+    "bash": {
+      "*": "deny",
+      "lee-llm-router *": "allow",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git -C *": "allow",
+      "cat *": "allow",
+      "ls *": "allow",
+      "grep *": "allow",
+      "rg *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "sed -n *": "allow",
+      "find *": "allow",
+      "python3 -m pytest*": "allow",
+      "pwd": "allow",
+      "claude*": "deny",
+      "codex*": "deny",
+      "agy*": "deny",
+      "opencode*": "deny",
+      "omp*": "deny",
+      "pi*": "deny",
+      "git commit*": "deny",
+      "git push*": "deny",
+      "git checkout*": "deny",
+      "git reset*": "deny"
+    },
+    "task": "deny"
+  }
+}

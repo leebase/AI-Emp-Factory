@@ -1,0 +1,167 @@
+{
+  "distribution": "AI-Emp-Factory",
+  "manifest_version": 1,
+  "manifest": "scripts/manifest.distribution.json",
+  "builder": "scripts/build_distribution.sh",
+  "built_at_utc": "2026-09-17T18:12:02Z",
+  "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
+  "built_from": "revision",
+  "user_data_boundary": "user/",
+  "allow_dirty": false,
+  "component_count": 4,
+  "total_files_copied": 84,
+  "components": [
+    {
+      "name": "router",
+      "source": "/home/lee/projects/lee-llm-router",
+      "pin": "0924d63",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "0924d63cd8efbbb8cb40b557cb35872f47ea949f",
+      "head_commit": "0924d63cd8efbbb8cb40b557cb35872f47ea949f",
+      "pin_match": true,
+      "clean_by_construction": true,
+      "method": "export-source",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "src/lee_llm_router (exported by lee-llm-router)",
+          "to": "router",
+          "files": 53
+        },
+        {
+          "from": "config/staffing/*.yaml",
+          "to": "router/config/staffing",
+          "files": 6
+        }
+      ],
+      "copy_notes": [
+        "copied byte-for-byte: @STAGE_WORKER_DIR@ and @*_BINARY@ must survive unresolved, or the tree is no longer relocatable (P1)"
+      ],
+      "files_copied": 59
+    },
+    {
+      "name": "schemas",
+      "source": "/home/lee/projects/ai-employee",
+      "pin": "2e5547f",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "2e5547f4808b98cbfdca4a167087b550d53c7a3d",
+      "head_commit": "2e5547f4808b98cbfdca4a167087b550d53c7a3d",
+      "pin_match": true,
+      "clean_by_construction": true,
+      "method": "copy",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "src/ai_employee",
+          "to": "schemas/ai_employee",
+          "files": 9
+        }
+      ],
+      "copy_notes": [
+        "the package directory name is preserved so a consumer can put schemas/ on PYTHONPATH and import ai_employee unchanged"
+      ],
+      "files_copied": 9
+    },
+    {
+      "name": "factory",
+      "source": "/home/lee/projects/ai-employee-factory",
+      "pin": "d126a4f",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "d126a4f30b02d82e580565f193d289e975b5b697",
+      "head_commit": "d126a4f30b02d82e580565f193d289e975b5b697",
+      "pin_match": true,
+      "clean_by_construction": true,
+      "method": "copy",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "employees/ordinary/AGENTS.md",
+          "to": "factory/employees/ordinary/AGENTS.md",
+          "files": 1
+        },
+        {
+          "from": "employees/ordinary/architect",
+          "to": "factory/employees/ordinary/architect",
+          "files": 4
+        },
+        {
+          "from": "templates",
+          "to": "factory/templates",
+          "files": 1
+        },
+        {
+          "from": "hiring/registry/README.md",
+          "to": "factory/hiring/registry/README.md",
+          "files": 1
+        },
+        {
+          "from": "scripts/employee_registry.py",
+          "to": "factory/scripts/employee_registry.py",
+          "files": 1
+        },
+        {
+          "from": "employees/ordinary/dev-chief-of-staff",
+          "to": "chief",
+          "files": 4
+        }
+      ],
+      "copy_notes": [
+        "the shared Employee Zero base every ordinary employee role file specialises",
+        "TEMPLATE PARTS ONLY. The packet names the directory; at build time it also contained one employee's instance state -- a named assignment, a journal entry, an append-only ledger and an absolute assignment workspace -- which D266 forbids shipping to another user. The same template-parts rule the packet states for chief/ is applied here, and the deviation is recorded in MANIFEST.lock.json.",
+        "project and employee templates, kept in their own subfolders (D298)",
+        "registry documentation; the concrete records/ entries are not shipped",
+        "registry generator/reconciler; it resolves ROOT as its own parent's parent, which is why factory/ keeps the source-relative layout",
+        "the Chief package: TEMPLATE PARTS ONLY (Packet P5-1, D266). The source package's journal/, decisions.md, outputs/ and state/assignment.json are one employee's accumulated memory and work; shipping them would hand one user's history to another. It is a copy spec inside the factory component, not a fifth component, because it is pinned to the same source and commit as the rest of the Factory."
+      ],
+      "files_copied": 12
+    },
+    {
+      "name": "stage-workers",
+      "source": "/home/lee/projects/auto-orch",
+      "pin": "8f40e2b",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "8f40e2ba2a9081a257a1769fa52f61815203fc86",
+      "head_commit": "8f40e2ba2a9081a257a1769fa52f61815203fc86",
+      "pin_match": true,
+      "clean_by_construction": true,
+      "method": "copy",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "scripts/claude_stage_worker.py",
+          "to": "stage-workers/claude_stage_worker.py",
+          "files": 1
+        },
+        {
+          "from": "scripts/opencode_stage_worker.py",
+          "to": "stage-workers/opencode_stage_worker.py",
+          "files": 1
+        },
+        {
+          "from": "scripts/pi_stage_worker.py",
+          "to": "stage-workers/pi_stage_worker.py",
+          "files": 1
+        },
+        {
+          "from": "scripts/codex_stage_worker.py",
+          "to": "stage-workers/codex_stage_worker.py",
+          "files": 1
+        }
+      ],
+      "copy_notes": [],
+      "files_copied": 4
+    }
+  ]
+}

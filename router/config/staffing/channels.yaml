@@ -1,0 +1,134 @@
+# Staffing channel catalog — P0-3h.
+#
+# Shape authority: config/staffing/schema/channels.schema.json (P0-1) and
+# docs/staffing/phase0-contracts.md §Channel. The channel id set is exactly
+# the seven ids the P0-3 plan names for this file (chief-of-staff
+# docs/staffing-migration-sprint-plan.md, packet P0-3): openai-sub,
+# anthropic-sub, gemini-sub, opencode-go, openrouter, opencode-zen, local.
+# The live funding-channel ids in crews.py CHANNELS / PROVIDER_CHANNELS and
+# availability.py CHANNELS are read, not modified (additive data only).
+#
+# Fee authority — D203 (decisions.md 2026-09-09): OpenAI $200/month (Lee
+# stated, current), Anthropic $100/month changing to $20/month on
+# 2026-09-30, Gemini $100/month changing to $20/month on 2026-09-30, and the
+# effective date. OpenCode Go's monthly plan fee was "unknown" before
+# 2026-09-14 and is $10/month from that date. OpenRouter and OpenCode Zen are
+# metered at list price (D203), so no monthly-fee entry exists for them; their
+# per-token price lives in the replacement_price_ref series. The local tier
+# is parked with no sourced fee (D156).
+#
+# Windows — drawn only from the four contract ids (rolling-5h, weekly,
+# monthly, daily). Per-channel windows are the quota windows the committed
+# ai-subs pipeline (chief-of-staff scripts/ai-subs.sh, read by
+# lee_llm_router.availability) reports per provider, confirmed against the
+# live snapshot ~/.local/state/lee-llm-router/availability/A8Max.json
+# (2026-09-09):
+#   OpenAI/Codex    -> openai-sub:    "Weekly limit" + "GPT-5.3-Codex-Spark (5h)"
+#   Anthropic/Claude-> anthropic-sub: "Current session" (5-hour) + weekly
+#   Gemini/agy      -> gemini-sub:    "Gemini models" weekly + 5-hour. The
+#     "Claude/GPT models" buckets are the separate gemini-sub-thirdparty
+#     funding channel (availability.py GEMINI_BUCKET_PREFIXES); the P0-3
+#     plan does not list that id in this catalog.
+#   OpenCode/Go     -> opencode-go:   Rolling — 5-hour, Weekly, Monthly
+# Metered and local channels have no committed quota-window mapping, so
+# their window lists are empty (the contract allows zero or more).
+#
+# Harness locks — the harnesses that may consume each channel, from the
+# committed live mappings (crews.py PROVIDER_CHANNELS and
+# HARNESS_PROVIDER_CHANNELS, harness spellings per the router harness
+# mappings (crew_page.py HARNESS identity mapping / ALTERNATE_HARNESSES:
+# codex, claude, agy, opencode, omp, pi)) and Lee's harness-lock restatement
+# in D203: "Claude code and Gemini do not allow the subscription to be used
+# in other harnesses - so when using those models we must use those
+# harnesses" (Gemini lock per D155). pi_cli and omp_cli resolve their
+# channel per worker via crews.py HARNESS_PROVIDER_CHANNELS:
+#   openai-codex -> openai-sub, openrouter -> openrouter,
+#   opencode-go -> opencode-go, anthropic -> anthropic-sub.
+# The D203/D155 Anthropic and Gemini vendor locks keep anthropic-sub locked
+# to Claude Code and gemini-sub to agy. opencode-zen and local have no
+# committed harness mapping, so their lock lists are empty (schema allows
+# an empty list).
+#
+# replacement_price_ref is a catalog pointer to the authorized pricing
+# source, never a price value. Primary source is the pinned OpenRouter
+# catalog snapshot config/staffing/pricing/openrouter-20260912.json (D176
+# token-pricing authority; sha256 sidecar alongside), with agent-orch
+# src/agent_orch/rate_table.yaml as the P0-4 fallback where OpenRouter has
+# no row. Per D207/chief-answers-2, the authorized source for opencode-go
+# ids is OpenCode Zen's published per-model pricing, pinned as
+# config/staffing/pricing/opencode-zen-20260912.mdx (sha256 sidecar
+# alongside). No local-model row exists in either source and none is
+# invented here (local tier parked, D156; T4 free/local), so the local
+# channel's replacement_price_ref cites that decision instead of a
+# pricing source.
+
+channels:
+  - channel_id: openai-sub
+    kind: subscription
+    fee_usd_month:
+      - effective_from: "2026-09-09"
+        value: 200
+    windows: [rolling-5h, weekly]
+    harness_lock: [codex, omp, pi]
+    replacement_price_ref: config/staffing/pricing/openrouter-20260912.json
+
+  - channel_id: anthropic-sub
+    kind: subscription
+    fee_usd_month:
+      - effective_from: "2026-09-09"
+        value: 100
+      - effective_from: "2026-09-30"
+        value: 20
+    windows: [rolling-5h, weekly]
+    harness_lock: [claude]
+    replacement_price_ref: config/staffing/pricing/openrouter-20260912.json
+
+  - channel_id: gemini-sub
+    kind: subscription
+    fee_usd_month:
+      - effective_from: "2026-09-09"
+        value: 100
+      - effective_from: "2026-09-30"
+        value: 20
+    windows: [rolling-5h, weekly]
+    harness_lock: [agy]
+    replacement_price_ref: config/staffing/pricing/openrouter-20260912.json
+
+  - channel_id: opencode-go
+    kind: subscription
+    fee_usd_month:
+      - effective_from: "2026-09-09"
+        value: unknown
+      - effective_from: "2026-09-14"
+        value: 10
+    windows: [rolling-5h, weekly, monthly]
+    harness_lock: [opencode, omp, pi]
+    replacement_price_ref: config/staffing/pricing/opencode-zen-20260912.mdx
+    instances:
+      - instance_id: a
+        credential_ref: opencode-go/a
+        enabled: true
+      - instance_id: b
+        credential_ref: opencode-go/b
+        enabled: true
+
+  - channel_id: openrouter
+    kind: metered
+    fee_usd_month: []
+    windows: []
+    harness_lock: [omp, pi]
+    replacement_price_ref: config/staffing/pricing/openrouter-20260912.json
+
+  - channel_id: opencode-zen
+    kind: metered
+    fee_usd_month: []
+    windows: []
+    harness_lock: []
+    replacement_price_ref: config/staffing/pricing/opencode-zen-20260912.mdx
+
+  - channel_id: local
+    kind: local
+    fee_usd_month: []
+    windows: []
+    harness_lock: []
+    replacement_price_ref: decision:D156 (2026-09-01 local tier parked — no replacement price; no local model row in any pricing source)

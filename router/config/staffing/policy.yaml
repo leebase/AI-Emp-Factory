@@ -1,0 +1,301 @@
+# Staffing policy catalog — P0-3i.
+#
+# Shape authority: config/staffing/schema/policy.schema.json (P0-1) and
+# docs/staffing/phase0-contracts.md §Policy. Every entry below cites its
+# governing decision id in `decision`/`source`; nothing here is invented.
+#
+# Encoded entries are exactly the committed policy rules:
+#   never_automatic — Fable 5.1, Opus 5, Luna Max (D152, D187, D204)
+#   role_scoped     — Gemini 3.1 Pro, planner/reviewer only (D188)
+#   role_class      — the D189-confirmed stage/role → governance-class mapping
+# The three-entry never_automatic set is the contract set locked by D204
+# item 2 ("Never-automatic set unchanged (Fable 5.1, Opus 5, Luna Max)"); it
+# does not exhaust crews.py's legacy NEVER_AUTOMATIC_MODELS constant, which
+# is pre-existing code data containing four live ids (claude-fable-5-1,
+# claude-fable-5, gpt-5.6-luna, claude-opus-5) — the extra claude-fable-5 id
+# has no contract-named entry here. Model refs are the live ids already
+# committed in src/lee_llm_router/crews.py (NEVER_AUTOMATIC_MODELS,
+# ROLE_SCOPED_MODELS) and docs/staffing/catalog.md (policy-constant home
+# table): Fable 5.1 -> claude-fable-5-1, Opus 5 -> claude-opus-5, Luna Max ->
+# gpt-5.6-luna, Gemini 3.1 Pro -> gemini-3.1-pro. The Fable and Opus rules
+# are model-level; the Luna rule carries the schema's optional per-effort
+# `effort` narrowing (`max`) because chief round 10 explicitly places
+# `gpt-5.6-luna | pi | xhigh | openai-sub` as an automatic escalation rung
+# in both interactive crews, so the never-automatic Luna rule is scoped to
+# effort `max` and Luna XHigh stays eligible subject to the other rules.
+# No other cited decision scopes any of these rules to an effort level.
+#
+# spend_caps remains an empty array: the contracts (phase0-contracts.md
+# §Policy) require spend caps to cite their governing decision; no such
+# decision is cited, so nothing is invented there.
+#
+# reviewer_independence holds exactly two records (Chief round 15): the
+# vocabulary mapping review -> reviewer and judge -> evaluator plus the
+# explain --author-route behavior come from chief-answers-15.md, and each
+# record copies its archived labor-ladder roles.yaml independence shape
+# verbatim. Independence is an author/candidate comparison, never a
+# class-to-model preference (D206).
+#
+# role_floors: recorded data only in Phase 0 (Chief round 15, D86/D87). Each
+# record keys a staffing role name to the floor copied verbatim from the
+# archived labor-ladder tier policy via the Chief round 15 vocabulary mapping.
+# Floors are NOT enforced: no authority has assigned T1-T4 tiers to the
+# current models (labor-ladder's tiers name retired models), so these records
+# carry no effective dates and drive no selection behavior. Enforcement
+# arrives in Phase 2 with evidence-based tiers or a Lee decision.
+#
+# D206 (decisions.md 2026-09-09, verbatim contract in phase0-contracts.md):
+# "Class metadata MUST NOT map directly to a preferred model or route. It may
+# only: 1. join production attempts to comparable benchmark evidence; and
+# 2. determine whether an unevidenced cheap trial is permitted." The
+# `role_class` entries below are role-to-class governance only; nothing in
+# this file maps a class to a model or route.
+
+never_automatic:
+  - model_ref: claude-fable-5-1
+    decision: >-
+      Fable 5.1 must never be used in an automatic selection: a resolver may
+      reach it only when a crew names the model explicitly (never automatic).
+    source: >-
+      decisions.md D152 (model-routing ladder for the escalation cascade);
+      D187 (D152-D158 ladder rules bind the crew-aware resolver); D204 item 2
+      (never-automatic set unchanged: Fable 5.1, Opus 5, Luna Max)
+  - model_ref: claude-opus-5
+    decision: >-
+      Opus 5 must never be used in an automatic selection: a resolver may
+      reach it only when a crew names the model explicitly (never automatic).
+    source: >-
+      decisions.md D152 (model-routing ladder for the escalation cascade);
+      D187 (D152-D158 ladder rules bind the crew-aware resolver); D204 item 2
+      (never-automatic set unchanged: Fable 5.1, Opus 5, Luna Max)
+  - model_ref: gpt-5.6-luna
+    effort: max
+    decision: >-
+      Luna at effort max must never be used in an automatic selection: a
+      resolver may reach it only when a crew names the model explicitly
+      (never automatic). The rule is narrowed to effort max, not model-level:
+      chief round 10 explicitly places `gpt-5.6-luna | pi | xhigh |
+      openai-sub` as an automatic escalation rung in both interactive crews,
+      so Luna XHigh is not covered by this rule and remains eligible subject
+      to the other rules and headroom.
+    source: >-
+      decisions.md D152 (model-routing ladder for the escalation cascade);
+      D187 (D152-D158 ladder rules bind the crew-aware resolver); D204 item 2
+      (never-automatic set unchanged: Fable 5.1, Opus 5, Luna Max); chief
+      round 10 (chief-answers-10.md: the interactive crews' escalation ladders
+      name `gpt-5.6-luna | pi | xhigh | openai-sub` as an automatic rung,
+      disambiguating the Luna rule to effort max)
+
+role_scoped:
+  - model_ref: gemini-3.1-pro
+    allowed_role_classes:
+      - planning_review
+    denied_role_classes:
+      - coding
+    decision: >-
+      Gemini 3.1 Pro is role-scoped eligible: for coding/implementation roles
+      it is never chosen automatically (strict or flex) and bind to it is
+      refused; for planner/reviewer roles it is eligible in strict, flex, and
+      bind, subject to the same headroom and never-automatic rules as any
+      other worker. Direction is model-to-roles only; this is not a
+      class-to-model preference (D206).
+    source: >-
+      decisions.md D188 (amends D152/D153/D187; D189 confirms the mapping
+      unchanged)
+
+role_class:
+  - role_ref: author
+    role_class: coding
+    decision: >-
+      The author role is governed as the coding role class (role-to-class
+      governance only; never a class-to-model or class-to-route preference,
+      D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: primary
+    role_class: coding
+    decision: >-
+      The primary role is governed as the coding role class (role-to-class
+      governance only; never a class-to-model or class-to-route preference,
+      D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: envision
+    role_class: planning_review
+    decision: >-
+      The envision stage role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: ideate
+    role_class: planning_review
+    decision: >-
+      The ideate stage role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: reconsider
+    role_class: planning_review
+    decision: >-
+      The reconsider stage role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: score
+    role_class: planning_review
+    decision: >-
+      The score stage role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: reviewer
+    role_class: planning_review
+    decision: >-
+      The reviewer role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+  - role_ref: judge
+    role_class: planning_review
+    decision: >-
+      The judge role is governed as the planning_review role class
+      (role-to-class governance only; never a class-to-model or
+      class-to-route preference, D206).
+    source: decisions.md D189 (D188 stage mapping confirmed unchanged)
+
+role_floors:
+  - role_ref: impl
+    floor: T2
+    decision: >-
+      The impl staffing role maps to the archived implementer role (Chief
+      round 15) and the implementer's archived floor is T2. Recorded data
+      only: this floor is not enforced in Phase 0 because no authority has
+      assigned T1-T4 tiers to the current models.
+    source: >-
+      Chief round 15 (chief-answers-15.md, D86/D87: the role-name mapping
+      impl -> implementer, floors recorded but not enforced); archived
+      labor-ladder/policy/roles.yaml (floor shape and value: implementer
+      floor T2)
+  - role_ref: plan
+    floor: T2
+    decision: >-
+      The plan staffing role maps to the archived planner role (Chief round
+      15) and the planner's archived floor is T2. Recorded data only: this
+      floor is not enforced in Phase 0 because no authority has assigned
+      T1-T4 tiers to the current models.
+    source: >-
+      Chief round 15 (chief-answers-15.md, D86/D87: the role-name mapping
+      plan -> planner, floors recorded but not enforced); archived
+      labor-ladder/policy/roles.yaml (floor shape and value: planner floor
+      T2)
+  - role_ref: review
+    floor: T2
+    decision: >-
+      The review staffing role maps to the archived reviewer role (Chief
+      round 15) and the reviewer's archived floor is T2. Recorded data only:
+      this floor is not enforced in Phase 0 because no authority has assigned
+      T1-T4 tiers to the current models.
+    source: >-
+      Chief round 15 (chief-answers-15.md, D86/D87: the role-name mapping
+      review -> reviewer, floors recorded but not enforced); archived
+      labor-ladder/policy/roles.yaml (floor shape and value: reviewer floor
+      T2)
+  - role_ref: judge
+    floor: T2
+    decision: >-
+      The judge staffing role maps to the archived evaluator role (Chief
+      round 15) and the evaluator's archived floor is T2. Recorded data
+      only: this floor is not enforced in Phase 0 because no authority has
+      assigned T1-T4 tiers to the current models.
+    source: >-
+      Chief round 15 (chief-answers-15.md, D86/D87: the role-name mapping
+      judge -> evaluator, floors recorded but not enforced); archived
+      labor-ladder/policy/roles.yaml (floor shape and value: evaluator floor
+      T2)
+  - role_ref: prose
+    floor: T2
+    decision: >-
+      The prose staffing role maps to the archived author role (Chief round
+      15) and the author's archived floor is T2. Recorded data only: this
+      floor is not enforced in Phase 0 because no authority has assigned
+      T1-T4 tiers to the current models.
+    source: >-
+      Chief round 15 (chief-answers-15.md, D86/D87: the role-name mapping
+      prose -> author, floors recorded but not enforced); archived
+      labor-ladder/policy/roles.yaml (floor shape and value: author floor
+      T2)
+# reviewer_independence: exactly two records, keyed by the staffing
+# reviewer_ref names review and judge (Chief round 15 vocabulary mapping:
+# review -> reviewer, judge -> evaluator). Each record copies its archived
+# labor-ladder role's independence shape verbatim; no values are invented.
+# Enforcement occurs only when explain receives --author-route (Chief round
+# 15 ruling 2); with absent input, explain discloses "independence not
+# evaluated (no --author-route)" rather than excluding routes. Independence
+# is an author/candidate comparison, never a class-to-model preference
+# (D206).
+
+reviewer_independence:
+  - reviewer_ref: review
+    not_same_worker_as: authors
+    prefer_different_family: true
+    decision: >-
+      The review staffing role maps to the archived reviewer role (Chief
+      round 15) and carries the reviewer's archived independence shape
+      verbatim: the reviewer must not be the same worker as the authors and
+      a different model family is preferred. Independence is an
+      author/candidate comparison, never a class-to-model preference
+      (D206). Enforcement occurs only when explain receives --author-route;
+      when the input is absent, explain discloses "independence not
+      evaluated (no --author-route)" instead of excluding routes.
+    source: >-
+      Chief round 15 (chief-answers-15.md, ruling 1: the vocabulary mapping
+      review -> reviewer; ruling 2: the explain --author-route behavior and
+      the absent-input disclosure); archived labor-ladder/policy/roles.yaml
+      (reviewer independence shape: not_same_worker_as: authors,
+      prefer_different_family: true)
+  - reviewer_ref: judge
+    second_opinion_mode: different-family-than-author
+    decision: >-
+      The judge staffing role maps to the archived evaluator role (Chief
+      round 15) and carries the evaluator's archived independence shape
+      verbatim: the judge operates in second-opinion mode, different family
+      than the author. Independence is an author/candidate comparison,
+      never a class-to-model preference (D206). Enforcement occurs only
+      when explain receives --author-route; when the input is absent,
+      explain discloses "independence not evaluated (no --author-route)"
+      instead of excluding routes.
+    source: >-
+      Chief round 15 (chief-answers-15.md, ruling 1: the vocabulary mapping
+      judge -> evaluator; ruling 2: the explain --author-route behavior and
+      the absent-input disclosure); archived labor-ladder/policy/roles.yaml
+      (evaluator independence shape: second_opinion_mode:
+      different-family-than-author)
+
+spend_caps: []
+
+# D215 ruling 3: Named-crew ordering rule — within a role's array, order by
+# marginal price at authoring time with prepaid-first as the tie-break; a human
+# may pin otherwise with a stated reason.
+crew_ordering_rule:
+  decision: >-
+    Within a role's array, order by marginal price at authoring time with
+    prepaid-first as the tie-break; a human may pin otherwise with a stated
+    reason.
+  source: decisions.md D215 ruling 3 (named-crew ordering rule recorded in
+    policy.yaml)
+
+# D216: subscription-channel reserve fraction (policy floor, distinct from
+# the availability reader's health heuristics). Default 0.10 applies to every
+# subscription channel; per-channel overrides list explicit values. When a
+# channel's remaining_fraction in any binding window is at or below its
+# reserve, the channel's routes are excluded from automatic staffing with a
+# named reason citing D216. Anthropic and Gemini are explicitly 0.10 per D216.
+reserve_fraction:
+  default: 0.10
+  overrides:
+    - channel_id: anthropic-sub
+      reserve_fraction: 0.10
+    - channel_id: gemini-sub
+      reserve_fraction: 0.10
+
+# D211 ruling 3: terminal cost used by staffing ladder arithmetic when
+# automated rungs are exhausted. Chief's placeholder; Lee may change it.
+human_escalation_cost_usd: 5.00

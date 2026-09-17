@@ -1,0 +1,185 @@
+# Staffing class taxonomy — P0-3j.
+#
+# Shape authority: config/staffing/schema/classes.schema.json (P0-1) and
+# docs/staffing/phase0-contracts.md §Class key. Value-set authority is the
+# staffing-architecture recommendation 2026-09-09 §3.1 ("Initial value sets
+# (Chief, 2026-09-09, under D205; these are the whole taxonomy until a
+# decision grows it)"); the entire §3.1 value-set table and the deterministic
+# don't-cheap-trial rule are copied whole below, unchanged. Taxonomy growth
+# requires a decision (D205).
+#
+# Canonical class-key string (Chief, 2026-09-09, round 3): the structured
+# five named fields are the record of truth; the lowercase string
+# `role/oracle_type/domain_tags/size_band/language` is a derived join key
+# with `domain_tags` sorted ascending by codepoint, deduplicated, and
+# '+'-joined, and the literal `none` for the empty set (never an empty
+# segment). Canonical examples:
+#   impl/deterministic/none/s/python
+#   impl/judge/authority+persistence/m/python
+#   review/judge/none/xs/markdown
+#
+# D206 (verbatim, phase0-contracts.md §Class-metadata prohibition):
+# "Class metadata MUST NOT map directly to a preferred model or route. It may
+# only: 1. join production attempts to comparable benchmark evidence; and
+# 2. determine whether an unevidenced cheap trial is permitted." Nothing in
+# this file names a model, route, provider, preference, selection, or
+# ranking; every property below joins comparable evidence or gates cheap
+# trials only.
+
+taxonomy_version: classes-2026-09-09.1
+
+key_grammar: role/oracle_type/domain_tags/size_band/language
+
+canonical_encoding:
+  segment_separator: "/"
+  tag_separator: "+"
+  tag_order: ascending codepoint
+  tag_dedup: true
+  empty_tags_segment: none
+  notes: |
+    The domain-tags key segment is the tag set sorted ascending by codepoint
+    (persistence+security, never security+persistence), deduplicated, and
+    joined by '+', which is unambiguous because no tag value contains '+';
+    the empty tag set is the literal 'none', never an empty segment (a
+    doubled '/' such as impl/judge//s/python is invalid). The structured
+    five named fields remain authoritative for validation; the string is a
+    derived join key. Cross-field equality between class_key and the
+    components, plus sortedness and dedup of the key segment beyond what the
+    schema pattern enforces, is loader work if JSON Schema cannot express
+    it. Canonical examples: impl/deterministic/none/s/python;
+    impl/judge/authority+persistence/m/python;
+    review/judge/none/xs/markdown.
+
+    Phase 3 P3-3 packet domain-tag keyword table (D213 ruling 2), narrowed by
+    Phase 3 P3-7 answer 3 (chief-answers-p3-1.md): packet domain tags come
+    ONLY from an explicit 'Domain:' packet field, or otherwise ONLY by
+    literal matches against the table below -- no other inference is
+    permitted. Grammar: one 'keyword -> tag' entry per line under the
+    'domain-keyword-table:' marker; 'tag' must be a member of the closed
+    value_sets.domain_tags vocabulary; matching is a case-insensitive
+    literal substring test of the keyword against each of the packet's
+    declared owned paths, never against prose text elsewhere in the packet
+    (a prose mention such as "authoritative" must never contribute the
+    "authority" tag by substring accident). Every matched table entry is
+    recorded as source evidence; a packet with no match and no explicit
+    Domain field carries no tag. This table joins comparable evidence only
+    and names no model, route, provider, or preference (D206). The table is
+    placed in this notes field because the classes schema (additionalProperties:
+    false) permits no additional top-level property; the literal lines below
+    are the authoritative table.
+
+    domain-keyword-table:
+      migration -> persistence
+      sqlite -> persistence
+      database -> persistence
+      concurrent -> concurrency
+      concurrency -> concurrency
+      interleave -> concurrency
+      thread-safety -> concurrency
+      credential -> security
+      secret -> security
+      sandbox -> security
+      authority -> authority
+      escalation -> authority
+      browser -> ui-browser
+      playwright -> ui-browser
+      selenium -> ui-browser
+      erd -> data-schema
+      ddl -> data-schema
+      check-constraint -> data-schema
+      makefile -> infra-env
+      cron -> infra-env
+      dockerfile -> infra-env
+
+# Recommendation §3.1 "Initial value sets" table, copied whole and only;
+# each array is closed with exact cardinality (no taxonomy growth).
+value_sets:
+  # Comparability across benchmark roles (implementation / planner /
+  # code-review), Auto-Orch stages (envision, ideate, reconsider, score ->
+  # plan; author -> plan; governed primary -> impl, reviewer -> review,
+  # judge -> judge), and documentation work (prose).
+  role:
+    - impl
+    - plan
+    - review
+    - judge
+    - prose
+  # The cheap-trial gate: deterministic = tests/validators/contract checks
+  # decide; judge = a blinded model judge or reviewer decides; human = Lee
+  # or an external confirmation decides; none = no oracle exists.
+  oracle_type:
+    - deterministic
+    - judge
+    - human
+    - none
+  # Set, may be empty. The first four are Rule E's "above the cheap tier"
+  # signals; the last three exist only so benchmark rows join production
+  # rows (browser smoke, ERD/CHECK work, Makefile/shell/cron work).
+  domain_tags:
+    - persistence
+    - concurrency
+    - security
+    - authority
+    - ui-browser
+    - data-schema
+    - infra-env
+  # xs = <=1 file, <=50 changed lines; s = <=3 files, <=200; m = <=8 files,
+  # <=600; l = larger. Measured from the diff when one exists, estimated
+  # from the packet otherwise; the estimate is recorded as an estimate.
+  size_band:
+    - xs
+    - s
+    - m
+    - l
+  # Comparability only.
+  language:
+    - python
+    - typescript
+    - shell
+    - c
+    # Packet S7b: Go is a first-class owned-path language.
+    - go
+    - sql
+    - yaml-config
+    - markdown
+    - mixed
+
+# The deterministic don't-cheap-trial rule (§3.1, from the key alone):
+# oracle_type in {human, none}, or any of {persistence, concurrency,
+# security, authority} present with size_band in {m, l}. Everything else is
+# cheap-trial safe. Risk gating only: no model ids, routes, or preferences.
+cheap_trial_rule:
+  rule_name: dont_cheap_trial
+  default: allow_cheap_trial
+  deny_conditions:
+    - when:
+        field: oracle_type
+        op: in
+        values:
+          - human
+          - none
+      reason: oracle_human_or_none
+    - when:
+        all_of:
+          - field: size_band
+            op: in
+            values:
+              - m
+              - l
+          - field: domain_tags
+            op: intersects
+            values:
+              - persistence
+              - concurrency
+              - security
+              - authority
+      reason: risk_tag_on_m_or_l
+  override:
+    kind: supervisor_override_is_attempt_evidence
+    direction: allow_cheap_trial
+    description: >-
+      The supervisor may override the rule either way, and the override is
+      recorded on the attempt as attempt evidence in either direction: it
+      may lift a denial and allow an unevidenced cheap trial, or impose a
+      denial on a class the default would permit. Risk gating only — it
+      names no model, route, provider, or preference.

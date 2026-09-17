@@ -1,0 +1,11 @@
+# The user-data boundary. Everything the user accumulates stays local to their
+# clone; only the seeds below are tracked, so a fresh clone starts empty and a
+# release never overwrites their work.
+user/journal/*
+!user/journal/.gitkeep
+user/memory/*
+!user/memory/.gitkeep
+
+__pycache__/
+*.pyc
+.venv/
