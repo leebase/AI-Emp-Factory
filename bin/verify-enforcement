@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Report the effective Claude permission surface for this installation.
+
+The point is provenance. An employee that declines to call a provider binary
+proves only that it declined; it does not prove it was prevented. This reads the
+policy the harness actually loads and states what is allowed and denied, so a
+later observed denial can be attributed to the policy rather than to good
+behaviour.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+REQUIRED_DENIES = [
+    ("direct provider invocation", "Bash(claude:*)"),
+    ("ungranted component mutation", "Edit(router/**)"),
+    ("self-modification of the policy", "Edit(.claude/**)"),
+]
+REQUIRED_ALLOWS = [
+    ("granted router operation", "Bash(./bin/lee-llm-router:*)"),
+    ("own journal", "Edit(chief/journal/**)"),
+    ("own state", "Edit(chief/state/**)"),
+]
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parent.parent
+    path = root / ".claude" / "settings.json"
+    if not path.is_file():
+        print(f"  NO EFFECTIVE POLICY: {path} is absent.", file=sys.stderr)
+        print("  Nothing is mechanically enforced under this harness.", file=sys.stderr)
+        return 1
+    policy = json.loads(path.read_text(encoding="utf-8"))
+    perms = policy.get("permissions", {})
+    allow = set(perms.get("allow", []))
+    deny = set(perms.get("deny", []))
+
+    print(f"  effective policy: {path}")
+    print(f"  mode: {perms.get('defaultMode')}")
+    ok = True
+    print("  positive — must be granted:")
+    for label, rule in REQUIRED_ALLOWS:
+        present = rule in allow
+        ok &= present
+        print(f"    {'OK  ' if present else 'MISSING'} {label}: {rule}")
+    print("  negative — must be denied:")
+    for label, rule in REQUIRED_DENIES:
+        present = rule in deny
+        ok &= present
+        print(f"    {'OK  ' if present else 'MISSING'} {label}: {rule}")
+    if not ok:
+        print("  ENFORCEMENT INCOMPLETE", file=sys.stderr)
+        return 1
+    print("  enforcement surface complete")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

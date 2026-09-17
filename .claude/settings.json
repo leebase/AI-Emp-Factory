@@ -1,0 +1,51 @@
+{
+  "_note": "Compiled from the employee's neutral authority for the Claude Code harness. Deny wins over allow. The equivalent OpenCode policy is chief/opencode.json; both are generated from the same authority, and neither is authoritative over the other.",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(./bin/lee-llm-router:*)",
+      "Bash(bin/lee-llm-router:*)",
+      "Bash(./bin/capture-availability)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(sed -n:*)",
+      "Bash(pwd)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Read(//**)",
+      "Edit(chief/journal/**)",
+      "Edit(chief/outputs/**)",
+      "Edit(chief/state/**)",
+      "Edit(chief/decisions.md)",
+      "Edit(user/**)"
+    ],
+    "deny": [
+      "Bash(claude:*)",
+      "Bash(codex:*)",
+      "Bash(opencode:*)",
+      "Bash(pi:*)",
+      "Bash(agy:*)",
+      "Bash(omp:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(sudo:*)",
+      "Edit(.claude/**)",
+      "Edit(chief/AGENTS.md)",
+      "Edit(chief/README.md)",
+      "Edit(chief/opencode.json)",
+      "Edit(router/**)",
+      "Edit(schemas/**)",
+      "Edit(factory/**)",
+      "Edit(stage-workers/**)",
+      "Edit(bin/**)",
+      "Edit(MANIFEST.lock.json)",
+      "Edit(requirements.txt)"
+    ]
+  }
+}
