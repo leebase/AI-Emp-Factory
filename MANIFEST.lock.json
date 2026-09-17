@@ -3,7 +3,7 @@
   "manifest_version": 1,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-17T18:33:46Z",
+  "built_at_utc": "2026-09-17T18:34:57Z",
   "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
   "built_from": "revision",
   "user_data_boundary": "user/",

@@ -52,13 +52,29 @@ def capture_anthropic() -> tuple[list[dict], str | None]:
         if not match:
             continue
         used = float(match.group("used"))
+        remaining = round(100.0 - used, 2)
+        # The reader needs a status badge and a reset horizon. Both are derived
+        # from the observed percentage and the provider's own reset text; where
+        # the horizon cannot be derived it stays None rather than being guessed,
+        # and the reserve then holds because an unknown horizon never waives.
+        if remaining <= 0.0:
+            status = "EXHAUSTED"
+        elif remaining < 10.0:
+            status = "HOT"
+        elif remaining < 25.0:
+            status = "TOO FAST"
+        else:
+            status = "COLD"
         rows.append({
             "provider": "Anthropic/Claude",
             "bucket": match.group("bucket").strip(),
             "used_pct": used,
-            "remaining_pct": round(100.0 - used, 2),
+            "remaining_pct": remaining,
+            "status": status,
+            "pace_ratio": None,
+            "resets_at": None,
+            "resets_in_hours": None,
             "resets_at_text": (match.group("resets") or "").strip() or None,
-            "status": "OBSERVED",
             "source": "claude -p /usage --output-format json",
         })
     if not rows:
@@ -73,8 +89,13 @@ def main() -> int:
         / (os.uname().nodename + ".json")
     )
     rows, error = capture_anthropic()
+    now = datetime.now(timezone.utc).isoformat()
     snapshot = {
-        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "observed_at": now,
+        # written_at is what the reader uses to judge staleness; a snapshot
+        # without it reads as stale, and stale forces every channel to unknown,
+        # which vetoes every subscription route. Found on the target.
+        "written_at": now,
         "host": os.uname().nodename,
         "capture": "bin/capture-availability",
         "subscriptions": rows,
