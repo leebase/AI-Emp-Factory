@@ -38,6 +38,7 @@ import json
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
+import os
 from pathlib import Path
 from typing import Mapping
 
@@ -73,9 +74,21 @@ DEFAULT_OPENROUTER_SNAPSHOT_PATH = (
     _REPO_ROOT / "config" / "staffing" / "pricing" / "openrouter-20260911.json"
 )
 
+#: Environment override for the rate-table location. The fallback table is
+#: versioned reference data — published list prices with an as-of date — so a
+#: distribution can ship it; but the default below is an absolute path into a
+#: sibling development checkout, which does not exist on any other machine.
+#: Without this override an exported tree prices nothing through the fallback
+#: and every route that OpenRouter does not list is excluded as "pricing
+#: unavailable". Found on a foreign host, where it silently vetoed every
+#: Anthropic subscription route.
+RATE_TABLE_PATH_ENV_VAR = "LEE_LLM_ROUTER_RATE_TABLE"
+
 #: agent-orch rate table — the P0-4 fallback where OpenRouter has no row (D207).
+#: Unset environment keeps the historical path, so estate behaviour is unchanged.
 DEFAULT_RATE_TABLE_PATH = Path(
-    "/home/lee/projects/agent-orch/src/agent_orch/rate_table.yaml"
+    os.environ.get(RATE_TABLE_PATH_ENV_VAR)
+    or "/home/lee/projects/agent-orch/src/agent_orch/rate_table.yaml"
 )
 
 #: Multiplier for any badge not configured in terms.yaml badge_multipliers.

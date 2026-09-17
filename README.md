@@ -63,11 +63,12 @@ The configuration in `router/config/staffing/` is shipped verbatim, with its `@â
 relocation tokens unresolved, so the tree works from wherever you cloned it.
 | Component | Source | Commit | Files |
 |---|---|---|---|
-| `router` | `/home/lee/projects/lee-llm-router` | `0924d63cd8efbbb8cb40b557cb35872f47ea949f` | 76 |
+| `router` | `/home/lee/projects/lee-llm-router` | `4305355f38bc096dbe101274c4bc5eb2db970c11` | 76 |
 | `schemas` | `/home/lee/projects/ai-employee` | `2e5547f4808b98cbfdca4a167087b550d53c7a3d` | 9 |
 | `factory` | `/home/lee/projects/ai-employee-factory` | `d126a4f30b02d82e580565f193d289e975b5b697` | 12 |
 | `stage-workers` | `/home/lee/projects/auto-orch` | `8f40e2ba2a9081a257a1769fa52f61815203fc86` | 4 |
+| `rate-table` | `/home/lee/projects/agent-orch` | `fbedba033dc79e91e0698b5c8a788c85e5b1be2d` | 1 |
 
-Built 2026-09-17T18:40:00Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
+Built 2026-09-17T18:51:43Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
 `user/` is owned by the user: the builder seeds it only when it is absent and
 never overwrites anything inside it.

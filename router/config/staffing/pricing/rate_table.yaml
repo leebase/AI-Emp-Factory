@@ -1,0 +1,410 @@
+schema_version: 1
+rates:
+  claude-3-7-sonnet-20250219:
+    source_url: "https://www.anthropic.com/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 3.00
+    output_usd_per_1m: 15.00
+    cache_read_usd_per_1m: 0.30
+    cache_write_usd_per_1m: 3.75
+
+  claude-3-5-sonnet-20241022:
+    source_url: "https://www.anthropic.com/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 3.00
+    output_usd_per_1m: 15.00
+    cache_read_usd_per_1m: 0.30
+    cache_write_usd_per_1m: 3.75
+
+  claude-3-5-haiku-20241022:
+    source_url: "https://www.anthropic.com/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.80
+    output_usd_per_1m: 4.00
+    cache_read_usd_per_1m: 0.08
+    cache_write_usd_per_1m: 1.00
+
+  gemini-2.5-pro:
+    source_url: "https://ai.google.dev/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 1.25
+    output_usd_per_1m: 5.00
+
+  gemini-2.5-flash:
+    source_url: "https://ai.google.dev/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.15
+    output_usd_per_1m: 0.60
+
+  gemini-2.0-flash:
+    source_url: "https://ai.google.dev/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.10
+    output_usd_per_1m: 0.40
+
+  gemini-1.5-pro:
+    source_url: "https://ai.google.dev/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 1.25
+    output_usd_per_1m: 5.00
+
+  gemini-1.5-flash:
+    source_url: "https://ai.google.dev/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.075
+    output_usd_per_1m: 0.30
+
+  gpt-4o:
+    source_url: "https://openai.com/api/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 2.50
+    output_usd_per_1m: 10.00
+
+  gpt-4o-mini:
+    source_url: "https://openai.com/api/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.15
+    output_usd_per_1m: 0.60
+
+  o1:
+    source_url: "https://openai.com/api/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 15.00
+    output_usd_per_1m: 60.00
+
+  o3-mini:
+    source_url: "https://openai.com/api/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 1.10
+    output_usd_per_1m: 4.40
+
+  amazon.nova-micro-v1:0:
+    source_url: "https://aws.amazon.com/bedrock/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.035
+    output_usd_per_1m: 0.14
+
+  amazon.nova-lite-v1:0:
+    source_url: "https://aws.amazon.com/bedrock/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.06
+    output_usd_per_1m: 0.24
+
+  amazon.nova-pro-v1:0:
+    source_url: "https://aws.amazon.com/bedrock/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.80
+    output_usd_per_1m: 3.20
+
+  us.anthropic.claude-3-5-sonnet-20241022-v2:0:
+    source_url: "https://aws.amazon.com/bedrock/pricing/"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 3.00
+    output_usd_per_1m: 15.00
+
+  # --- Current-generation models routed by auto-orch crews (added 2026-09-02).
+  # The pricing admission gate fails closed on any unpriced model; every model
+  # named in auto-orch/config/crews.yaml governed routes must appear here.
+  # Subscription lanes (Claude Code, Codex, AGY broker) are not billed per
+  # token; these rows are the vendor list prices used for budget accounting.
+
+  claude-fable-5:
+    source_url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 10.00
+    output_usd_per_1m: 50.00
+    cache_read_usd_per_1m: 1.00
+    cache_write_usd_per_1m: 12.50
+
+  claude-fable-5-1:
+    source_url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 10.00
+    output_usd_per_1m: 50.00
+    cache_read_usd_per_1m: 1.00
+    cache_write_usd_per_1m: 12.50
+
+  claude-fable-5.1:
+    source_url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 10.00
+    output_usd_per_1m: 50.00
+    cache_read_usd_per_1m: 1.00
+    cache_write_usd_per_1m: 12.50
+
+  claude-opus-5:
+    source_url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 5.00
+    output_usd_per_1m: 25.00
+    cache_read_usd_per_1m: 0.50
+    cache_write_usd_per_1m: 6.25
+
+  claude-sonnet-5:
+    source_url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 2.00
+    output_usd_per_1m: 10.00
+    cache_read_usd_per_1m: 0.20
+    cache_write_usd_per_1m: 2.50
+
+  gemini-3.1-pro:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 2.00
+    output_usd_per_1m: 12.00
+    cache_read_usd_per_1m: 0.20
+
+  # gemini-3.7-flash introductory rate through 2026-12-31; $1.50/$7.50 from
+  # 2027-01-01. The -high/-medium/-low suffix is an effort level, not a model.
+  gemini-3.7-flash-high:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gemini-3.7-flash-medium:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gemini-3.7-flash-low:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gemini-3.8-flash-high:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gemini-3.8-flash-medium:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gemini-3.8-flash-low:
+    source_url: "https://ai.google.dev/gemini-api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.75
+    output_usd_per_1m: 3.75
+    cache_read_usd_per_1m: 0.075
+
+  gpt-5.6-sol:
+    source_url: "https://developers.openai.com/api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 4.00
+    output_usd_per_1m: 20.00
+    cache_read_usd_per_1m: 0.40
+
+  gpt-5.6-terra:
+    source_url: "https://developers.openai.com/api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 2.00
+    output_usd_per_1m: 12.00
+    cache_read_usd_per_1m: 0.20
+
+  gpt-5.6-luna:
+    source_url: "https://developers.openai.com/api/docs/pricing"
+    as_of: "2026-09-02"
+    input_usd_per_1m: 0.20
+    output_usd_per_1m: 1.20
+    cache_read_usd_per_1m: 0.02
+
+  # --- P0-6a documented direct-model rows (added 2026-09-08). Every price is
+  # converted verbatim from a recorded OpenRouter catalog capture (per-token
+  # price × 1,000,000); no value is inferred. Basis: the snapshot file named in
+  # each comment under /home/lee/projects/ai-workforce-benchmark/docs/.
+
+  # OpenRouter catalog rates (per token): prompt 0.000000075, completion
+  # 0.00000025, input_cache_read 0.000000015. Basis:
+  # openrouter-pricing-discriminating-20260907.json (observed 2026-09-07T17:52:11Z);
+  # identical values in the 2026-09-04/05 captures.
+  z-ai/glm-5.3-flash:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-07"
+    input_usd_per_1m: 0.075
+    output_usd_per_1m: 0.25
+    cache_read_usd_per_1m: 0.015
+
+  # OpenRouter catalog rates (per token): prompt 0.00000008414, completion
+  # 0.00000016828, input_cache_read 0.000000016828. Basis:
+  # openrouter-pricing-three-harness-20260905.json (observed 2026-09-05T17:19:07Z).
+  # Earlier same-day captures recorded 0.00000008694/0.00000017388/0.000000017388;
+  # the latest recorded observation is used. No cache-write rate is published.
+  deepseek/deepseek-v4-flash:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-05"
+    input_usd_per_1m: 0.08414
+    output_usd_per_1m: 0.16828
+    cache_read_usd_per_1m: 0.016828
+
+  # D218 intake (chief-of-staff/decisions.md 2026-09-12): DeepSeek V4.1 Flash
+  # via Pi/OpenRouter, candidate metered workhorse. OpenRouter catalog base
+  # rates (per token): prompt 0.00000015, completion 0.0000006,
+  # input_cache_read 0.000000003. Basis: lee-llm-router
+  # config/staffing/pricing/openrouter-20260911.json (observed 2026-09-11).
+  # The catalog row also carries UTC-time-of-day peak/off-peak overrides
+  # (peak: prompt 0.0000003, completion 0.0000012, cache-read 0.000000006);
+  # this rate table, like the router's terms module, records only the base
+  # rate — no time-of-day pricing is modeled anywhere in the pricing stack.
+  # No cache-write rate is published.
+  deepseek/deepseek-v4.1-flash:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-11"
+    input_usd_per_1m: 0.15
+    output_usd_per_1m: 0.60
+    cache_read_usd_per_1m: 0.003
+
+  # OpenRouter catalog rates (per token): prompt 0.000000065, completion
+  # 0.00000018, input_cache_read 0.000000016 (canonical slug
+  # deepseek/deepseek-v4-flash-20260731; identical across all 2026-09-05
+  # captures). Basis: openrouter-pricing-three-harness-20260905.json
+  # (observed 2026-09-05T17:19:07Z). No cache-write rate is published.
+  deepseek/deepseek-v4-flash-0731:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-05"
+    input_usd_per_1m: 0.065
+    output_usd_per_1m: 0.18
+    cache_read_usd_per_1m: 0.016
+
+  # OpenRouter publishes the numeric source of this row under the tilde-prefixed
+  # alias '~deepseek/deepseek-v4-flash-latest' (alias_target ->
+  # deepseek/deepseek-v4-flash-0731); the bare key here is the plan-requested
+  # compatibility key mapped to that alias's rates. Rates (per token): prompt
+  # 0.00000004998, completion 0.00000009996, input_cache_read 0.000000009996;
+  # identical in openrouter-pricing-three-harness-20260905.json (observed
+  # 2026-09-05T17:19:07Z) and openrouter-pricing-deepseek-codex-20260905.json
+  # (observed 2026-09-05T20:10:27Z); the later capture is the cited basis. No
+  # cache-write rate is published.
+  deepseek/deepseek-v4-flash-latest:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-05"
+    input_usd_per_1m: 0.04998
+    output_usd_per_1m: 0.09996
+    cache_read_usd_per_1m: 0.009996
+
+  # Requested id 'gpt-6-astra' is published in the catalog as
+  # 'openai/gpt-6-astra' (canonical slug gpt-6-astra-20260903). Rates (per
+  # token): prompt 0.00001, completion 0.00005, input_cache_read 0.000001,
+  # input_cache_write 0.0000125. Basis: openrouter-pricing-coverage-20260908.json
+  # (observed 2026-09-08T08:20:38Z). A long-context override applies per request
+  # at >= 272,000 prompt tokens (0.00002/0.000075 prompt/completion,
+  # 0.000002/0.000025 cache read/write); this table's schema has no
+  # long-context fields, so the base-tier row is recorded here and the override
+  # is documented in this comment only.
+  gpt-6-astra:
+    source_url: "https://openrouter.ai/api/v1/models"
+    as_of: "2026-09-08"
+    input_usd_per_1m: 10.00
+    output_usd_per_1m: 50.00
+    cache_read_usd_per_1m: 1.00
+    cache_write_usd_per_1m: 12.50
+
+  # --- P0-6d OpenCode Go rows (added 2026-09-09). OpenCode Go is
+  # subscription-metered and publishes no per-token price list; per the
+  # subscription-lane convention (D207), each row below is the OpenCode Zen
+  # list price for the same catalog id, used as the accounting proxy. Prices
+  # are copied verbatim from the '## Pricing' table of the pinned Zen capture
+  # (as_of 2026-09-09). Cache rates are recorded only where Zen publishes
+  # them ('-' in the table means no rate is published).
+
+  opencode-go/glm-5.3-flash:
+    basis: "OpenCode Zen list price for the same catalog id; OpenCode Go is subscription-metered, priced as accounting proxy per the subscription-lane convention"
+    source_url: "https://raw.githubusercontent.com/sst/opencode/70b4ca8c181e4c1ac6d8993b86249d824487ec65/packages/web/src/content/docs/zen.mdx"
+    as_of: "2026-09-09"
+    input_usd_per_1m: 0.15
+    output_usd_per_1m: 0.50
+    cache_read_usd_per_1m: 0.03
+    # Cross-check only: OpenRouter 'z-ai/glm-5.3-flash' 20260909 snapshot
+    # records 0.000000075/0.00000025/0.000000015 prompt/completion/cache-read
+    # per token; it differs from Zen, and Zen wins.
+
+  opencode-go/qwen3.7-plus:
+    basis: "OpenCode Zen list price for the same catalog id; OpenCode Go is subscription-metered, priced as accounting proxy per the subscription-lane convention"
+    source_url: "https://raw.githubusercontent.com/sst/opencode/70b4ca8c181e4c1ac6d8993b86249d824487ec65/packages/web/src/content/docs/zen.mdx"
+    as_of: "2026-09-09"
+    input_usd_per_1m: 0.40
+    output_usd_per_1m: 1.60
+    cache_read_usd_per_1m: 0.04
+    cache_write_usd_per_1m: 0.50
+    # Cross-check only: OpenRouter 'qwen/qwen3.7-plus' 20260909 snapshot
+    # records 0.00000032/0.00000128/0.000000064/0.0000004
+    # prompt/completion/cache-read/cache-write per token; it differs from
+    # Zen, and Zen wins.
+
+  opencode-go/deepseek-v4.1-flash:
+    basis: "OpenCode Go serves this id (opencode models, 2026-09-15) but the OpenCode Zen pricing table (opencode-zen-20260915.mdx) has no DeepSeek V4.1 Flash row; accounting proxy is OpenRouter's same-vendor list price for deepseek/deepseek-v4.1-flash (off-peak base tier), recorded under the D207 convention by the Chief of Staff on Lee's 2026-09-15 direction that V4.1 Flash is available on the OpenCode Go subscription. Replace with the Zen row when one is published."
+    source_url: "https://openrouter.ai/api/v1/models (lee-llm-router config/staffing/pricing/openrouter-20260915.json, sha256 a1165086ef31cf830c7c815423ccdbf0bc5a8ad349a4ac77516d8bafbb8cc321)"
+    as_of: "2026-09-15"
+    input_usd_per_1m: 0.15
+    output_usd_per_1m: 0.60
+    cache_read_usd_per_1m: 0.003
+
+  opencode-go/deepseek-v4-flash:
+    basis: "OpenCode Zen list price for the same catalog id; OpenCode Go is subscription-metered, priced as accounting proxy per the subscription-lane convention"
+    source_url: "https://raw.githubusercontent.com/sst/opencode/70b4ca8c181e4c1ac6d8993b86249d824487ec65/packages/web/src/content/docs/zen.mdx"
+    as_of: "2026-09-09"
+    input_usd_per_1m: 0.14
+    output_usd_per_1m: 0.28
+    cache_read_usd_per_1m: 0.028
+    # Cross-check only: OpenRouter 'deepseek/deepseek-v4-flash' 20260909
+    # snapshot records 0.000000084/0.000000168/0.0000000168
+    # prompt/completion/cache-read per token; it differs from Zen, and Zen
+    # wins. No cache-write rate is published.
+
+  opencode-go/deepseek-v4-pro:
+    basis: "OpenCode Zen list price for the same catalog id; OpenCode Go is subscription-metered, priced as accounting proxy per the subscription-lane convention"
+    source_url: "https://raw.githubusercontent.com/sst/opencode/70b4ca8c181e4c1ac6d8993b86249d824487ec65/packages/web/src/content/docs/zen.mdx"
+    as_of: "2026-09-09"
+    input_usd_per_1m: 1.74
+    output_usd_per_1m: 3.48
+    cache_read_usd_per_1m: 0.145
+    # Cross-check only: OpenRouter 'deepseek/deepseek-v4-pro' 20260909
+    # snapshot records 0.00000087/0.00000174/0.0000000725
+    # prompt/completion/cache-read per token; it differs from Zen, and Zen
+    # wins. No cache-write rate is published.
+
+  opencode-go/minimax-m2.7:
+    basis: "OpenCode Zen list price for the same catalog id; OpenCode Go is subscription-metered, priced as accounting proxy per the subscription-lane convention"
+    source_url: "https://raw.githubusercontent.com/sst/opencode/70b4ca8c181e4c1ac6d8993b86249d824487ec65/packages/web/src/content/docs/zen.mdx"
+    as_of: "2026-09-09"
+    input_usd_per_1m: 0.30
+    output_usd_per_1m: 1.20
+    cache_read_usd_per_1m: 0.06
+    # Cross-check only: OpenRouter 'minimax/minimax-m2.7' 20260909 snapshot
+    # records 0.0000003/0.0000012/0.00000006 prompt/completion/cache-read per
+    # token, matching Zen. No cache-write rate is published.
+
+  test-model:
+    source_url: "https://leebase.test/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 1.00
+    output_usd_per_1m: 2.00
+
+  test-expensive-model:
+    source_url: "https://leebase.test/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 100.00
+    output_usd_per_1m: 500.00
+
+  fake_worker:
+    source_url: "https://leebase.test/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.00
+    output_usd_per_1m: 0.00
+
+  mock-model:
+    source_url: "https://leebase.test/pricing"
+    as_of: "2026-08-26"
+    input_usd_per_1m: 0.00
+    output_usd_per_1m: 0.00

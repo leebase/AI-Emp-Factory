@@ -3,22 +3,22 @@
   "manifest_version": 1,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-17T18:40:00Z",
+  "built_at_utc": "2026-09-17T18:51:43Z",
   "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
   "built_from": "revision",
   "user_data_boundary": "user/",
   "allow_dirty": false,
-  "component_count": 4,
-  "total_files_copied": 101,
+  "component_count": 5,
+  "total_files_copied": 102,
   "components": [
     {
       "name": "router",
       "source": "/home/lee/projects/lee-llm-router",
-      "pin": "0924d63",
+      "pin": "4305355",
       "pinned": true,
       "source_mode": "revision",
-      "resolved_commit": "0924d63cd8efbbb8cb40b557cb35872f47ea949f",
-      "head_commit": "0924d63cd8efbbb8cb40b557cb35872f47ea949f",
+      "resolved_commit": "4305355f38bc096dbe101274c4bc5eb2db970c11",
+      "head_commit": "4305355f38bc096dbe101274c4bc5eb2db970c11",
       "pin_match": true,
       "clean_by_construction": true,
       "method": "export-source",
@@ -173,6 +173,30 @@
       ],
       "copy_notes": [],
       "files_copied": 4
+    },
+    {
+      "name": "rate-table",
+      "source": "/home/lee/projects/agent-orch",
+      "pin": "fbedba0",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "fbedba033dc79e91e0698b5c8a788c85e5b1be2d",
+      "head_commit": "fbedba033dc79e91e0698b5c8a788c85e5b1be2d",
+      "pin_match": true,
+      "clean_by_construction": true,
+      "method": "copy",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "src/agent_orch/rate_table.yaml",
+          "to": "router/config/staffing/pricing",
+          "files": 1
+        }
+      ],
+      "copy_notes": [],
+      "files_copied": 1
     }
   ]
 }
