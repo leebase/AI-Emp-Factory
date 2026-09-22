@@ -1,0 +1,1064 @@
+#!/usr/bin/env python3
+"""Install-local Agent Board bootstrap and control.
+
+This file is copied to ``bin/board-runtime`` in a distribution.  It deliberately
+has no configurable distribution-root or credential-root option: the former is
+derived from this file and the latter from the effective account database.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+import platform
+import pwd
+import re
+import secrets
+import socket
+import stat
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Sequence
+
+
+BOARD_PORT = 8787
+EMPLOYEES = {
+    "chief-of-staff": {
+        "display_name": "Chief of Staff",
+        "kind": "chief-client",
+        "role": "manager",
+        "capabilities": ["delegated-work-supervision"],
+    },
+    "bounded-worker": {
+        "display_name": "Bounded Worker",
+        "kind": "ordinary-employee-client",
+        "role": "producer",
+        "capabilities": ["bounded-task-execution"],
+    },
+}
+OPERATOR_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:[-_.][A-Za-z0-9]+)*$")
+
+
+class BootstrapError(RuntimeError):
+    """A secret-safe bootstrap refusal."""
+
+
+@dataclass(frozen=True)
+class _Dependencies:
+    home_lookup: Callable[[], Path]
+    uid_lookup: Callable[[], int]
+    username_lookup: Callable[[], str]
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
+
+
+def _trusted_home() -> Path:
+    entry = pwd.getpwuid(os.getuid())
+    home = Path(entry.pw_dir)
+    if not home.is_absolute():
+        raise BootstrapError("account database returned a non-absolute home directory")
+    return home
+
+
+DEFAULT_DEPS = _Dependencies(
+    home_lookup=_trusted_home,
+    uid_lookup=os.getuid,
+    username_lookup=lambda: pwd.getpwuid(os.getuid()).pw_name,
+)
+
+
+@dataclass(frozen=True)
+class Paths:
+    root: Path
+    home: Path
+
+    @property
+    def board_binary(self) -> Path:
+        return self.root / "board" / "bin" / "agent-board-linux-amd64"
+
+    @property
+    def installed_binary(self) -> Path:
+        return self.board_data / "runtime" / "agent-board"
+
+    @property
+    def board_tools(self) -> Path:
+        return self.root / "board" / "deploy" / "user-service"
+
+    @property
+    def delegate_tool(self) -> Path:
+        return self.root / "factory" / "scripts" / "board_delegate.py"
+
+    @property
+    def board_data(self) -> Path:
+        return self.root / "user" / "board"
+
+    @property
+    def registry(self) -> Path:
+        return self.board_data / "registry"
+
+    @property
+    def records(self) -> Path:
+        return self.registry / "records"
+
+    @property
+    def evidence(self) -> Path:
+        return self.registry / "evidence"
+
+    @property
+    def instances(self) -> Path:
+        return self.board_data / "instances"
+
+    @property
+    def config_dir(self) -> Path:
+        return self.root / "user" / "config"
+
+    @property
+    def config(self) -> Path:
+        return self.config_dir / "agent-board.env"
+
+    @property
+    def seed(self) -> Path:
+        return self.config_dir / "registry-seed.json"
+
+    @property
+    def secret_root(self) -> Path:
+        return self.home / ".config" / "agent-board"
+
+    @property
+    def auth(self) -> Path:
+        return self.secret_root / "auth.json"
+
+    @property
+    def manager_dir(self) -> Path:
+        return self.secret_root / "manager"
+
+    @property
+    def manager_credential(self) -> Path:
+        return self.manager_dir / "credential"
+
+    @property
+    def onboarding_password(self) -> Path:
+        return self.secret_root / "operator-onboarding-password"
+
+    @property
+    def service_unit(self) -> Path:
+        return self.home / ".config" / "systemd" / "user" / "agent-board.service"
+
+
+def _distribution_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _mode(info: os.stat_result) -> int:
+    return stat.S_IMODE(info.st_mode)
+
+
+def _check_real_dir(path: Path, *, uid: int, private: bool = False) -> None:
+    try:
+        info = path.lstat()
+    except FileNotFoundError as exc:
+        raise BootstrapError(f"required directory is missing: {path}") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise BootstrapError(f"directory must be real, not a symlink: {path}")
+    if info.st_uid != uid:
+        raise BootstrapError(f"directory is not owned by this account: {path}")
+    if private and _mode(info) != 0o700:
+        raise BootstrapError(f"private directory must be mode 0700: {path}")
+
+
+def _ensure_dir(path: Path, *, uid: int, private: bool = False) -> None:
+    if path.exists() or path.is_symlink():
+        _check_real_dir(path, uid=uid, private=private)
+        return
+    parent = path.parent
+    if not parent.exists():
+        _ensure_dir(parent, uid=uid, private=False)
+    else:
+        _check_real_dir(parent, uid=uid)
+    path.mkdir(mode=0o700 if private else 0o755)
+    if private:
+        path.chmod(0o700)
+    _check_real_dir(path, uid=uid, private=private)
+
+
+def _read_protected(path: Path, *, uid: int) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise BootstrapError(f"protected file cannot be opened safely: {path}") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or _mode(info) != 0o600:
+            raise BootstrapError(f"protected file must be regular mode 0600: {path}")
+        if info.st_uid != uid:
+            raise BootstrapError(f"protected file is not owned by this account: {path}")
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            return handle.read()
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+def _write_new(path: Path, data: bytes, *, mode: int, uid: int) -> bool:
+    """Create a file once; preserve and validate an existing byte-identical file."""
+
+    if path.exists() or path.is_symlink():
+        if mode == 0o600:
+            existing = _read_protected(path, uid=uid)
+        else:
+            info = path.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+                raise BootstrapError(f"existing path is not a regular file: {path}")
+            if info.st_uid != uid:
+                raise BootstrapError(f"existing file is not owned by this account: {path}")
+            if _mode(info) != mode:
+                raise BootstrapError(f"existing file has unsafe mode; expected {mode:04o}: {path}")
+            existing = path.read_bytes()
+        if existing != data:
+            raise BootstrapError(f"existing file differs; refusing overwrite: {path}")
+        return False
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, mode)
+    try:
+        remaining = data
+        while remaining:
+            written = os.write(fd, remaining)
+            if written <= 0:  # pragma: no cover - regular files should progress.
+                raise BootstrapError(f"file creation made no progress: {path}")
+            remaining = remaining[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.chmod(path, mode)
+    return True
+
+
+def _canonical_json(value: object) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _read_owned_json(path: Path, *, uid: int) -> tuple[bytes, dict]:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise BootstrapError(f"owned JSON file cannot be opened safely: {path}") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != uid or info.st_nlink != 1:
+            raise BootstrapError(f"owned JSON path is not a safe regular file: {path}")
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            raw = handle.read()
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    try:
+        body = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise BootstrapError(f"owned JSON file is invalid: {path}") from exc
+    if not isinstance(body, dict):
+        raise BootstrapError(f"owned JSON file is not an object: {path}")
+    return raw, body
+
+
+def _validate_platform() -> None:
+    machine = platform.machine().lower()
+    if platform.system() != "Linux" or machine not in {"x86_64", "amd64"}:
+        raise BootstrapError("unsupported platform: requires Linux x86_64")
+
+
+def _validate_operator(operator: str) -> str:
+    if not OPERATOR_RE.fullmatch(operator):
+        raise BootstrapError("operator id must be a portable Board identifier")
+    return operator
+
+
+def _trusted_machine_id() -> str:
+    """Return the exact machine identity used by the immutable Board client."""
+
+    machine_id = socket.gethostname().strip().lower()
+    if not machine_id:
+        raise BootstrapError("trusted machine hostname is empty")
+    if len(machine_id) > 64:
+        raise BootstrapError("trusted machine hostname exceeds the Board 64-character limit")
+    return machine_id
+
+
+def _require_distribution(paths: Paths) -> None:
+    required = [
+        paths.board_binary,
+        paths.root / "factory" / "scripts" / "employee_registry.py",
+        paths.delegate_tool,
+        paths.root / "schemas" / "ai_employee",
+        *(
+            paths.board_tools / name
+            for name in (
+                "cutover.sh",
+                "lib.sh",
+                "filesystem-preflight.py",
+                "backup.sh",
+                "rollback.sh",
+                "sqlite-online-backup.py",
+                "instance-declaration.py",
+                "provision-participant.sh",
+                "commission-verify.py",
+            )
+        ),
+    ]
+    missing = [str(path) for path in required if not path.exists()]
+    if missing:
+        raise BootstrapError("distribution is incomplete; missing: " + ", ".join(missing))
+    if not os.access(paths.board_binary, os.X_OK):
+        raise BootstrapError(f"Board binary is not executable: {paths.board_binary}")
+
+
+def _hash_password(paths: Paths, password: str, deps: _Dependencies) -> str:
+    try:
+        result = deps.run(
+            [str(paths.board_binary), "auth", "hash-password"],
+            input=password + "\n",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except OSError as exc:
+        raise BootstrapError("Board password hashing command could not run") from exc
+    hashed = result.stdout.strip() if result.returncode == 0 else ""
+    if not hashed or "\n" in hashed or password in hashed:
+        raise BootstrapError("Board password hashing command failed safely")
+    return hashed
+
+
+def _secret_value(path: Path, *, uid: int, create: bool) -> str | None:
+    if path.exists() or path.is_symlink():
+        try:
+            value = _read_protected(path, uid=uid).decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise BootstrapError(f"protected file is not valid text: {path}") from exc
+        if not value:
+            raise BootstrapError(f"protected file is empty: {path}")
+        return value
+    if not create:
+        return None
+    value = secrets.token_urlsafe(48)
+    _write_new(path, (value + "\n").encode(), mode=0o600, uid=uid)
+    return value
+
+
+def _auth_config(paths: Paths, operator: str, deps: _Dependencies) -> tuple[dict, bool]:
+    uid = deps.uid_lookup()
+    if paths.auth.exists() or paths.auth.is_symlink():
+        try:
+            body = json.loads(_read_protected(paths.auth, uid=uid))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise BootstrapError("existing auth file is not valid JSON") from exc
+        if not isinstance(body, dict) or set(body) != {"session_secret", "users", "machines"}:
+            raise BootstrapError("existing auth file is not a complete Board auth snapshot")
+        try:
+            session_secret = base64.b64decode(body["session_secret"], validate=True)
+        except (TypeError, ValueError) as exc:
+            raise BootstrapError("existing auth session secret is malformed") from exc
+        if len(session_secret) < 32 or not isinstance(body["users"], dict) or not isinstance(body["machines"], dict):
+            raise BootstrapError("existing auth file is not a complete Board auth snapshot")
+        expected_user = body.get("users", {}).get(operator, {})
+        manager = body.get("machines", {}).get("manager", {})
+        if (
+            expected_user.get("roles") != ["admin"]
+            or not expected_user.get("enabled")
+            or not expected_user.get("password_hash")
+        ):
+            raise BootstrapError("existing auth file does not contain the requested admin")
+        if manager.get("roles") != ["operator"] or not manager.get("enabled"):
+            raise BootstrapError("existing auth file does not contain the manager principal")
+        credential = _secret_value(paths.manager_credential, uid=uid, create=False)
+        if credential is None or manager.get("api_secret") != credential:
+            raise BootstrapError("manager credential and auth snapshot do not match")
+        return body, False
+
+    password = _secret_value(paths.onboarding_password, uid=uid, create=True)
+    assert password is not None
+    password_hash = _hash_password(paths, password, deps)
+    manager_secret = _secret_value(paths.manager_credential, uid=uid, create=True)
+    assert manager_secret is not None
+    body = {
+        "session_secret": base64.b64encode(secrets.token_bytes(48)).decode("ascii"),
+        "users": {
+            operator: {
+                "display_name": operator,
+                "roles": ["admin"],
+                "enabled": True,
+                "password_hash": password_hash,
+            }
+        },
+        "machines": {
+            "manager": {
+                "name": "Installation manager",
+                "roles": ["operator"],
+                "enabled": True,
+                "api_secret": manager_secret,
+            }
+        },
+    }
+    _write_new(paths.auth, _canonical_json(body), mode=0o600, uid=uid)
+    return body, True
+
+
+def _specification(paths: Paths, employee_id: str, uid: int) -> Path:
+    spec_dir = paths.config_dir / "specifications"
+    _ensure_dir(spec_dir, uid=uid)
+    path = spec_dir / f"{employee_id}.md"
+    descriptions = {
+        "chief-of-staff": "Interactive Chief of Staff for this installation; supervises bounded delegated work.",
+        "bounded-worker": "Ordinary worker restricted to explicitly assigned bounded tasks and declared outputs.",
+    }
+    _write_new(
+        path,
+        (f"# {EMPLOYEES[employee_id]['display_name']}\n\n{descriptions[employee_id]}\n").encode(),
+        mode=0o644,
+        uid=uid,
+    )
+    return path
+
+
+def _seed(paths: Paths, operator: str, machine_id: str, captured_at: str, uid: int) -> dict:
+    entries = []
+    for employee_id, employee in EMPLOYEES.items():
+        spec = _specification(paths, employee_id, uid)
+        entries.append(
+            {
+                "employee_id": employee_id,
+                "record_mode": "commissioning",
+                "display_name": employee["display_name"],
+                "registration_ref": f"registration:{employee_id}",
+                "workspace_ref": f"workspace:{employee_id}",
+                "workspace_path": str(
+                    paths.root / "chief"
+                    if employee_id == "chief-of-staff"
+                    else paths.root / "user" / "workers" / employee_id
+                ),
+                "board_ref": f"board:{employee_id}",
+                "specification_ref": f"spec-source:local/{employee_id}",
+                "specification_source": str(spec),
+                "specification_digest": "sha256:" + hashlib.sha256(spec.read_bytes()).hexdigest(),
+                "commissioning_ref": f"commissioning:{employee_id}",
+                "commissioning_source_ref": "installation:local-board",
+                "commissioned_by": f"principal:{operator}",
+                "commissioned_at": captured_at,
+                "roster_key": employee_id,
+                "principal_refs": [f"principal:{operator}"],
+                "credential_scope_refs": [f"credential-scope:{employee_id}"],
+                "principal_ref": f"principal:{employee_id}",
+                "agent_id": employee_id,
+                "machine_id": machine_id,
+            }
+        )
+    return {
+        "schema_version": "ai-employee-registry-seed/1.0",
+        "tenant_id": f"{operator}-installation",
+        "captured_at": captured_at,
+        "entries": entries,
+    }
+
+
+def _instance(paths: Paths, employee_id: str, machine_id: str) -> dict:
+    employee = EMPLOYEES[employee_id]
+    protected = paths.secret_root / "participants" / employee_id
+    return {
+        "schema_version": "agent-board-commission-instance/1",
+        "employee_id": employee_id,
+        "display_name": employee["display_name"],
+        "board_identity": {
+            "board_ref": f"board:{employee_id}",
+            "principal_ref": f"principal:{employee_id}",
+            "agent_id": employee_id,
+            "machine_id": machine_id,
+        },
+        "grant": {
+            "agent_kind": employee["kind"],
+            "agent_role": employee["role"],
+            "agent_capabilities": employee["capabilities"],
+        },
+        "lifecycle": {"from_state": "commissioning", "target_state": "pilot"},
+        "registry": {
+            "records_dir": str(paths.records),
+            "record_path": str(paths.records / f"{employee_id}.json"),
+            "evidence_path": str(paths.evidence / f"{employee_id}.activation.json"),
+        },
+        "protected": {
+            "credential_path": str(protected / "credential"),
+            "endpoint_path": str(protected / "board-endpoint.json"),
+            "endpoint_url": f"http://127.0.0.1:{BOARD_PORT}",
+        },
+    }
+
+
+def _board_config(paths: Paths, operator: str) -> bytes:
+    values = {
+        "AGENT_BOARD_BIND_HOST": "127.0.0.1",
+        "AGENT_BOARD_PORT": str(BOARD_PORT),
+        "AGENT_BOARD_DB": str(paths.board_data / "agent-board.db"),
+        "AGENT_BOARD_AUTH_CONFIG_FILE": str(paths.auth),
+        "AGENT_BOARD_AUTH_INSECURE_COOKIES": "true",
+        "AGENT_BOARD_EMPLOYEE_REGISTRY_DIR": str(paths.records),
+        "AGENT_BOARD_ROSTER_FACTORY_DIR": str(paths.records),
+        "AGENT_BOARD_ROSTER_MISSIONS_DIR": str(paths.board_data / "missions-disabled"),
+        "AGENT_BOARD_ROSTER_HERMES_COMPOSE": "off",
+        "AGENT_BOARD_STAFF_VIEW": "true",
+        "AGENT_BOARD_STAFF_OPERATOR_ID": operator,
+        "AGENT_BOARD_STAFF_BOARD_DB": str(paths.board_data / "agent-board.db"),
+        "AGENT_BOARD_PUBLIC_READ": "false",
+        "AGENT_BOARD_ARTIFACT_DIR": str(paths.board_data / "artifacts"),
+        "AGENT_BOARD_ACTIVE_STATE_FILE": str(paths.board_data / "active-state.json"),
+    }
+    return ("\n".join(f"{key}={value}" for key, value in values.items()) + "\n").encode()
+
+
+def _validate_unit_paths(paths: Paths) -> None:
+    unit_paths = (
+        paths.root,
+        paths.installed_binary,
+        paths.config,
+        paths.board_data / "agent-board.db",
+        paths.auth,
+        paths.records,
+        paths.board_data / "artifacts",
+    )
+    if any(not path.is_absolute() or re.search(r"[\s\\\"']", str(path)) for path in unit_paths):
+        raise BootstrapError(
+            "installation paths must be absolute and contain no whitespace, quotes, or backslashes"
+        )
+
+
+def _service_unit(paths: Paths) -> bytes:
+    _validate_unit_paths(paths)
+    return f"""[Unit]
+Description=Agent Board (local AI-Emp-Factory installation)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={paths.root}
+EnvironmentFile={paths.config}
+Environment=AGENT_BOARD_DB={paths.board_data / "agent-board.db"}
+Environment=AGENT_BOARD_BIND_HOST=127.0.0.1
+Environment=AGENT_BOARD_PORT={BOARD_PORT}
+Environment=AGENT_BOARD_AUTH_CONFIG_FILE={paths.auth}
+Environment=AGENT_BOARD_EMPLOYEE_REGISTRY_DIR={paths.records}
+Environment=AGENT_BOARD_ARTIFACT_DIR={paths.board_data / "artifacts"}
+ExecStart={paths.installed_binary} --config {paths.config} server
+Restart=on-failure
+RestartSec=2
+UMask=0077
+
+[Install]
+WantedBy=default.target
+""".encode()
+
+
+def _run_registry_generate(paths: Paths, deps: _Dependencies) -> None:
+    env = os.environ.copy()
+    schema_root = str(paths.root / "schemas")
+    env["PYTHONPATH"] = schema_root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    command = [
+        sys.executable,
+        str(paths.root / "factory" / "scripts" / "employee_registry.py"),
+        "generate",
+        "--seed",
+        str(paths.seed),
+        "--records-dir",
+        str(paths.records),
+        "--missions-root",
+        str(paths.board_data / "missions-disabled"),
+    ]
+    result = deps.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, check=False)
+    if result.returncode:
+        raise BootstrapError("Factory registry generation failed; no Board service was started")
+
+
+def initialize(root: Path, operator: str, *, _deps: _Dependencies = DEFAULT_DEPS) -> Paths:
+    """Initialize one target without starting services or employees."""
+
+    _validate_platform()
+    operator = _validate_operator(operator)
+    root = root.resolve()
+    home = _deps.home_lookup()
+    paths = Paths(root=root, home=home)
+    uid = _deps.uid_lookup()
+    _check_real_dir(home, uid=uid)
+    _require_distribution(paths)
+    _validate_unit_paths(paths)
+
+    for directory in (
+        root / "user",
+        paths.board_data,
+        paths.registry,
+        paths.records,
+        paths.evidence,
+        paths.instances,
+        paths.board_data / "artifacts",
+        paths.board_data / "backups",
+        paths.board_data / "runtime",
+        paths.board_data / "missions-disabled",
+        paths.config_dir,
+        root / "user" / "workers" / "bounded-worker",
+    ):
+        _ensure_dir(directory, uid=uid)
+    _ensure_dir(home / ".config", uid=uid)
+    for directory in (
+        paths.secret_root,
+        paths.manager_dir,
+        paths.secret_root / "participants",
+    ):
+        _ensure_dir(directory, uid=uid, private=True)
+
+    _, auth_created = _auth_config(paths, operator, _deps)
+    captured = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    machine_id = _trusted_machine_id()
+
+    if paths.seed.exists() or paths.seed.is_symlink():
+        try:
+            seed = json.loads(paths.seed.read_bytes())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BootstrapError("existing registry seed is invalid") from exc
+        if not isinstance(seed, dict) or not isinstance(seed.get("entries"), list):
+            raise BootstrapError("existing registry seed is invalid")
+        if not all(isinstance(entry, dict) for entry in seed["entries"]):
+            raise BootstrapError("existing registry seed is invalid")
+        expected_ids = set(EMPLOYEES)
+        actual_ids = {entry.get("employee_id") for entry in seed.get("entries", [])}
+        if actual_ids != expected_ids:
+            raise BootstrapError("existing registry seed is not this installation's minimal roster")
+        existing_machine_ids = [entry.get("machine_id") for entry in seed["entries"]]
+        if any(
+            not isinstance(existing, str) or not existing.strip() or len(existing) > 64
+            for existing in existing_machine_ids
+        ):
+            raise BootstrapError("existing registry seed has an invalid machine id")
+        if set(existing_machine_ids) != {machine_id}:
+            raise BootstrapError(
+                "existing registry seed machine id does not match the current trusted hostname"
+            )
+        captured_existing = seed.get("captured_at", "")
+        try:
+            parsed_capture = datetime.fromisoformat(captured_existing.replace("Z", "+00:00"))
+        except (AttributeError, ValueError) as exc:
+            raise BootstrapError("existing registry seed has an invalid capture timestamp") from exc
+        if parsed_capture.utcoffset() != timezone.utc.utcoffset(parsed_capture):
+            raise BootstrapError("existing registry seed capture timestamp must be UTC")
+        expected_seed = _seed(paths, operator, machine_id, captured_existing, uid)
+    else:
+        expected_seed = _seed(paths, operator, machine_id, captured, uid)
+    _write_new(paths.seed, _canonical_json(expected_seed), mode=0o644, uid=uid)
+
+    for employee_id in EMPLOYEES:
+        participant_dir = paths.secret_root / "participants" / employee_id
+        _ensure_dir(participant_dir, uid=uid, private=True)
+        declaration = _instance(paths, employee_id, machine_id)
+        _write_new(
+            paths.instances / f"{employee_id}.json",
+            _canonical_json(declaration),
+            mode=0o644,
+            uid=uid,
+        )
+
+    _write_new(paths.config, _board_config(paths, operator), mode=0o600, uid=uid)
+    if paths.board_binary.resolve() == paths.installed_binary.resolve():
+        raise BootstrapError("candidate and installed Board binary must be distinct files")
+    _write_new(
+        paths.installed_binary,
+        paths.board_binary.read_bytes(),
+        mode=0o755,
+        uid=uid,
+    )
+    if hashlib.sha256(paths.installed_binary.read_bytes()).digest() != hashlib.sha256(
+        paths.board_binary.read_bytes()
+    ).digest():
+        raise BootstrapError("installed Board binary hash does not match the packaged candidate")
+    _ensure_dir(paths.service_unit.parent, uid=uid)
+    _write_new(paths.service_unit, _service_unit(paths), mode=0o644, uid=uid)
+
+    present_records = [
+        (paths.records / f"{employee_id}.json").is_file() for employee_id in EMPLOYEES
+    ]
+    if any(present_records) and not all(present_records):
+        raise BootstrapError("registry is partial; refusing to overwrite existing state")
+    if not any(present_records):
+        _run_registry_generate(paths, _deps)
+    record_names = {path.name for path in paths.records.glob("*.json")}
+    expected_record_names = {f"{employee_id}.json" for employee_id in EMPLOYEES}
+    if record_names != expected_record_names:
+        raise BootstrapError("registry contains records outside this installation's minimal roster")
+    for employee_id in EMPLOYEES:
+        record = paths.records / f"{employee_id}.json"
+        try:
+            info = record.lstat()
+            body = json.loads(record.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BootstrapError(f"Factory produced an invalid registry record: {employee_id}") from exc
+        if not isinstance(body, dict):
+            raise BootstrapError(f"Factory produced an invalid registry record: {employee_id}")
+        identity = body.get("board_identity", {})
+        if (
+            stat.S_ISLNK(info.st_mode)
+            or not stat.S_ISREG(info.st_mode)
+            or info.st_uid != uid
+            or body.get("employee_id") != employee_id
+            or body.get("display_name") != EMPLOYEES[employee_id]["display_name"]
+            or body.get("lifecycle_state") not in {"commissioning", "pilot"}
+            or identity.get("principal_ref") != f"principal:{employee_id}"
+            or identity.get("agent_id") != employee_id
+        ):
+            raise BootstrapError(f"Factory did not produce the expected registry record: {employee_id}")
+
+    print("Board bootstrap initialized; no service, employee, or schedule was started.")
+    if paths.onboarding_password.exists():
+        print(f"Operator onboarding password file: {paths.onboarding_password}")
+    if not auth_created:
+        print("Existing protected authentication state was validated and preserved.")
+    print(f"User service unit installed but not enabled or started: {paths.service_unit}")
+    return paths
+
+
+def _systemctl(paths: Paths, operation: str, deps: _Dependencies) -> int:
+    command = ["systemctl", "--user", operation, "agent-board.service"]
+    try:
+        result = deps.run(command, check=False)
+    except OSError as exc:
+        raise BootstrapError("user service control is unavailable; use foreground serve") from exc
+    return int(result.returncode)
+
+
+def commission(paths: Paths, employee_id: str, execute: bool, deps: _Dependencies) -> int:
+    if employee_id not in EMPLOYEES:
+        raise BootstrapError("employee must be chief-of-staff or bounded-worker")
+    declaration = paths.instances / f"{employee_id}.json"
+    record = paths.records / f"{employee_id}.json"
+    backup = paths.board_data / "backups" / f"commission-{employee_id}"
+    try:
+        _, declaration_body = _read_owned_json(declaration, uid=deps.uid_lookup())
+        _, record_body = _read_owned_json(record, uid=deps.uid_lookup())
+    except BootstrapError as exc:
+        raise BootstrapError("commissioning declaration or canonical record is invalid") from exc
+    target_state = declaration_body.get("lifecycle", {}).get("target_state")
+    state = record_body.get("lifecycle_state")
+    if state == target_state:
+        if _proven_commissioned(paths, employee_id, declaration_body, record_body, backup, deps):
+            print(f"{employee_id} is already commissioned; protected evidence was revalidated.")
+            return 0
+        raise BootstrapError(
+            "canonical lifecycle is active but complete commissioning evidence is absent or "
+            "inconsistent; refusing to overwrite or repeat activation"
+        )
+    if state != declaration_body.get("lifecycle", {}).get("from_state"):
+        raise BootstrapError(f"unsupported canonical lifecycle state for commissioning: {state!r}")
+
+    candidate_identity = _binary_identity(paths.board_binary, "candidate", deps)
+    installed_identity = _binary_identity(paths.installed_binary, "installed", deps)
+    candidate_info = paths.board_binary.stat()
+    installed_info = paths.installed_binary.stat()
+    if (candidate_info.st_dev, candidate_info.st_ino) == (installed_info.st_dev, installed_info.st_ino):
+        raise BootstrapError("candidate and installed Board binary must be distinct files")
+    print(
+        "Board binary preflight: "
+        f"candidate={candidate_identity[0]} sha256:{candidate_identity[1]}; "
+        f"installed={installed_identity[0]} sha256:{installed_identity[1]}"
+    )
+    _, seed = _read_owned_json(paths.seed, uid=deps.uid_lookup())
+    entries = [entry for entry in seed.get("entries", []) if entry.get("employee_id") == employee_id]
+    if len(entries) != 1 or not re.fullmatch(r"principal:[A-Za-z0-9._-]+", str(entries[0].get("commissioned_by", ""))):
+        raise BootstrapError("registry seed has no unambiguous commissioning actor")
+    command = [
+        str(paths.board_tools / "cutover.sh"),
+        "--unit", str(paths.service_unit),
+        "--candidate", str(paths.board_binary),
+        "--auth-config-file", str(paths.auth),
+        "--instance", str(declaration),
+        "--factory-root", str(paths.root / "factory"),
+        "--artifact-dir", str(paths.board_data / "artifacts"),
+        "--activation-actor", entries[0]["commissioned_by"],
+        "--activation-reason", f"portable installation commissioning of {employee_id}",
+        "--backup", str(backup),
+    ]
+    if execute:
+        command.append("--execute")
+    env = os.environ.copy()
+    schema_root = str(paths.root / "schemas")
+    env["PYTHONPATH"] = schema_root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    try:
+        result = deps.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            check=False,
+        )
+    except OSError as exc:
+        raise BootstrapError("supported Board commissioning transaction could not run") from exc
+    secrets_to_hide = _known_secrets(paths, deps.uid_lookup())
+    if result.stdout:
+        print(_redact(result.stdout.rstrip(), secrets_to_hide))
+    if result.stderr:
+        print(_redact(result.stderr.rstrip(), secrets_to_hide), file=sys.stderr)
+    if execute and result.returncode == 0:
+        activated_identity = _binary_identity(paths.installed_binary, "installed", deps)
+        if activated_identity != candidate_identity:
+            raise BootstrapError(
+                "supported cutover returned success but the installed Board version/hash "
+                "does not match the packaged candidate"
+            )
+    return int(result.returncode)
+
+
+def _binary_identity(binary: Path, label: str, deps: _Dependencies) -> tuple[str, str]:
+    try:
+        info = binary.lstat()
+        if (
+            stat.S_ISLNK(info.st_mode)
+            or not stat.S_ISREG(info.st_mode)
+            or info.st_uid != deps.uid_lookup()
+            or info.st_nlink != 1
+            or not os.access(binary, os.X_OK)
+        ):
+            raise BootstrapError(f"{label} Board binary is not a safe executable file")
+        result = deps.run(
+            [str(binary), "--version"], text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, check=False,
+        )
+    except OSError as exc:
+        raise BootstrapError(f"{label} Board binary version check could not run") from exc
+    version = result.stdout.strip()
+    if (
+        result.returncode
+        or not version
+        or not re.fullmatch(r"[ -~]{1,200}", version)
+    ):
+        raise BootstrapError(f"{label} Board binary did not report a valid version")
+    return version, hashlib.sha256(binary.read_bytes()).hexdigest()
+
+
+def _known_secrets(paths: Paths, uid: int) -> list[str]:
+    values: list[str] = []
+    for path in (paths.auth, paths.manager_credential, paths.onboarding_password):
+        if not (path.exists() or path.is_symlink()):
+            continue
+        try:
+            raw = _read_protected(path, uid=uid).decode("utf-8")
+        except (BootstrapError, UnicodeDecodeError):
+            continue
+        values.extend(match for match in re.findall(r"[A-Za-z0-9_+/=.-]{12,}", raw) if len(match) >= 12)
+    return sorted(set(values), key=len, reverse=True)
+
+
+def _redact(value: str, protected: Sequence[str]) -> str:
+    for secret in protected:
+        value = value.replace(secret, "[REDACTED]")
+    return value
+
+
+def _proven_commissioned(
+    paths: Paths,
+    employee_id: str,
+    declaration: dict,
+    record: dict,
+    backup: Path,
+    deps: _Dependencies,
+) -> bool:
+    uid = deps.uid_lookup()
+    protected = declaration.get("protected", {})
+    identity = declaration.get("board_identity", {})
+    grant = declaration.get("grant", {})
+    try:
+        credential_path = Path(protected["credential_path"])
+        endpoint_path = Path(protected["endpoint_path"])
+        credential = _read_protected(credential_path, uid=uid).decode("utf-8").strip()
+        endpoint = json.loads(_read_protected(endpoint_path, uid=uid))
+        auth = json.loads(_read_protected(paths.auth, uid=uid))
+        _, evidence = _read_owned_json(
+            paths.evidence / f"{employee_id}.activation.json", uid=uid
+        )
+        _, receipt = _read_owned_json(
+            backup / "commissioning-verification.json", uid=uid
+        )
+        machine = auth["machines"][identity["principal_ref"]]
+    except (KeyError, OSError, UnicodeError, json.JSONDecodeError, BootstrapError):
+        return False
+    try:
+        record_raw, _ = _read_owned_json(paths.records / f"{employee_id}.json", uid=uid)
+        declaration_raw, _ = _read_owned_json(paths.instances / f"{employee_id}.json", uid=uid)
+    except BootstrapError:
+        return False
+    checks = receipt.get("checks")
+    return bool(
+        credential
+        and endpoint == {
+            "board_url": protected.get("endpoint_url", "").rstrip("/"),
+            "credential_ref": str(credential_path),
+            "employee_id": employee_id,
+        }
+        and machine.get("api_secret") == credential
+        and machine.get("participant") is True
+        and machine.get("employee_id") == employee_id
+        and machine.get("board_ref") == identity.get("board_ref")
+        and machine.get("agent_id") == identity.get("agent_id")
+        and machine.get("machine_id") == identity.get("machine_id")
+        and machine.get("agent_kind") == grant.get("agent_kind")
+        and machine.get("agent_role") == grant.get("agent_role")
+        and machine.get("agent_capabilities") == grant.get("agent_capabilities")
+        and isinstance(evidence, dict)
+        and receipt.get("schema_version") == "agent-board-commission-verification/1"
+        and receipt.get("status") == "passed"
+        and receipt.get("employee_id") == employee_id
+        and receipt.get("record_digest") == "sha256:" + hashlib.sha256(record_raw).hexdigest()
+        and receipt.get("declaration_digest") == "sha256:" + hashlib.sha256(declaration_raw).hexdigest()
+        and isinstance(checks, dict) and checks and all(value is True for value in checks.values())
+    )
+
+
+def _delegate_document(paths: Paths, value: str, uid: int) -> str:
+    """Keep helper reads/appends within ordinary installation work documents."""
+    base = paths.root / "user"
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = paths.root / candidate
+    try:
+        if base.is_symlink():
+            raise ValueError("symlinked user root")
+        relative = candidate.relative_to(base)
+        if not relative.parts or any(part in {".", ".."} for part in relative.parts):
+            raise ValueError("noncanonical document path")
+        if relative.parts[0] in {"board", "config", "runtime"}:
+            raise ValueError("operator-owned surface")
+        current = base
+        for part in relative.parts:
+            current = current / part
+            if current.is_symlink():
+                raise ValueError("symlinked document path")
+        info = candidate.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != uid or info.st_nlink != 1:
+            raise ValueError("unsafe document inode")
+    except (OSError, ValueError) as exc:
+        raise BootstrapError("delegation documents must be existing owned regular files under user/, outside Board/config/runtime state") from exc
+    return str(candidate)
+
+
+def delegate(paths: Paths, args: argparse.Namespace, deps: _Dependencies) -> int:
+    _read_protected(paths.manager_credential, uid=deps.uid_lookup())
+    command = [sys.executable, str(paths.delegate_tool), args.delegate_action]
+    mapping = {
+        "delegator": "--delegator", "assignee": "--assignee",
+        "parent_task": "--parent-task", "direction_file": "--direction-file",
+        "title": "--title", "mission": "--mission", "priority": "--priority",
+        "instructions_file": "--instructions-file", "reviewer": "--reviewer",
+        "bound_minutes": "--bound-minutes", "decision_ref": "--decision-ref",
+        "task_id": "--task-id", "attributed_by": "--attributed-by",
+        "entry": "--entry", "reason": "--reason",
+    }
+    for name, flag in mapping.items():
+        value = getattr(args, name, None)
+        if value is not None:
+            if name in {"direction_file", "instructions_file"}:
+                value = _delegate_document(paths, str(value), deps.uid_lookup())
+            command.extend((flag, str(value)))
+    for criterion in getattr(args, "acceptance_criteria", None) or []:
+        command.extend(("--acceptance-criteria", criterion))
+    for flag in ("approve", "complete", "cancel"):
+        if getattr(args, flag, False):
+            command.append("--" + flag)
+    if args.delegate_action != "record":
+        command.extend(("--board-url", f"http://127.0.0.1:{BOARD_PORT}"))
+    try:
+        result = deps.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    except OSError as exc:
+        raise BootstrapError("Board delegation helper could not run") from exc
+    protected = _known_secrets(paths, deps.uid_lookup())
+    if result.stdout:
+        print(_redact(result.stdout.rstrip(), protected))
+    if result.stderr:
+        print(_redact(result.stderr.rstrip(), protected), file=sys.stderr)
+    return int(result.returncode)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    init = sub.add_parser("init", help="initialize local state without starting it")
+    init.add_argument("--operator", default=None)
+    sub.add_parser("serve", help="run Board in the foreground")
+    sub.add_parser("start", help="start the installed user service")
+    sub.add_parser("stop", help="stop the installed user service")
+    sub.add_parser("status", help="show user-service status")
+    commissioning = sub.add_parser("commission", help="operator-only participant commissioning")
+    commissioning.add_argument("employee", choices=sorted(EMPLOYEES))
+    commissioning.add_argument("--execute", action="store_true")
+    delegation = sub.add_parser("delegate", help="fixed local Board delegation seam")
+    delegate_commands = delegation.add_subparsers(dest="delegate_action", required=True)
+    create = delegate_commands.add_parser("create")
+    create.add_argument("--delegator", required=True)
+    create.add_argument("--assignee", required=True)
+    create.add_argument("--parent-task")
+    create.add_argument("--direction-file", required=True)
+    create.add_argument("--title", required=True)
+    create.add_argument("--mission", required=True)
+    create.add_argument("--priority", required=True)
+    create.add_argument("--instructions-file", required=True)
+    create.add_argument("--reviewer", required=True)
+    create.add_argument("--bound-minutes", required=True)
+    create.add_argument("--decision-ref", required=True)
+    create.add_argument("--acceptance-criteria", action="append")
+    record = delegate_commands.add_parser("record")
+    record.add_argument("--direction-file", required=True)
+    record.add_argument("--task-id", required=True)
+    record.add_argument("--attributed-by", required=True)
+    record.add_argument("--entry", required=True)
+    status = delegate_commands.add_parser("status")
+    status.add_argument("--task-id", required=True)
+    status.add_argument("--delegator")
+    close = delegate_commands.add_parser("close")
+    close.add_argument("--task-id", required=True)
+    close.add_argument("--approve", action="store_true")
+    close.add_argument("--complete", action="store_true")
+    close.add_argument("--cancel", action="store_true")
+    close.add_argument("--reason")
+    return parser
+
+
+def main(argv: Sequence[str] | None = None, *, _deps: _Dependencies = DEFAULT_DEPS) -> int:
+    args = _parser().parse_args(argv)
+    paths = Paths(_distribution_root(), _deps.home_lookup())
+    try:
+        if args.command == "init":
+            initialize(paths.root, args.operator or _deps.username_lookup(), _deps=_deps)
+            return 0
+        _require_distribution(paths)
+        if args.command == "serve":
+            try:
+                os.execv(
+                    str(paths.installed_binary),
+                    [str(paths.installed_binary), "--config", str(paths.config), "server"],
+                )
+            except OSError as exc:
+                raise BootstrapError("Board foreground server could not start") from exc
+        if args.command in {"start", "stop", "status"}:
+            return _systemctl(paths, args.command, _deps)
+        if args.command == "commission":
+            return commission(paths, args.employee, args.execute, _deps)
+        if args.command == "delegate":
+            return delegate(paths, args, _deps)
+    except BootstrapError as exc:
+        print(f"board-runtime: {exc}", file=sys.stderr)
+        return 1
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

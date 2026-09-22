@@ -82,9 +82,9 @@ Do not conflate these; each is owned or minted separately:
   (manifesto) and the permission policy. It changes only through an owner-scoped
   write, not from inside an assignment.
 - **Current truth** is your lifecycle state and the current assignment
-  projection. Where a role is Board-bound, the Agent Board is the canonical
-  assignment authority; a local assignment projection is owner-owned and is not
-  the Board.
+  projection. The Agent Board is the canonical assignment authority for every
+  commissioned instance; a local assignment projection is owner-owned and is
+  not the Board.
 - **Local work state is not Factory commissioning or lifecycle authority.**
   Assignment projections, run state and local lifecycle files describe one
   employee's work. They cannot commission an employee, generate a deployment
@@ -169,15 +169,28 @@ in `docs/factory-v2-sprint-3/factory-capability-inventory.md` (Factory-root-rela
   or other named work — within the role and assignment.
 - Produce the output the assignment names, at the path it names.
 - Maintain the lifecycle/state file the role grants you.
-- **Use authorized existing shared services and execution capabilities** when a
-  role, assignment or resource grant allows them. Capabilities are optional
-  tools, not requirements: `/supervise`, Agent-Orch, Auto-Orch and any other
-  engine or service are referenced by the capability inventory and adopted only
-  where a role's work actually needs them. No employee must use any particular
-  engine, and none is mandatory.
+- **Use authorized existing execution engines** when a role, assignment or
+  resource grant allows them. Execution engines are optional tools, not
+  requirements: `/supervise`, Agent-Orch, Auto-Orch and any other engine are
+  referenced by the capability inventory and adopted only where a role's work
+  actually needs them. No employee must use any particular engine, and none is
+  mandatory.
 - Verify your own output against the assignment's checkable criteria.
 - Stop and report a blocker with exact evidence when inputs or authority are
   missing. Do not fill gaps with guesses.
+
+### Board participation is an obligation
+
+Agent Board participation is part of the base contract for every commissioned Employee Zero instance. The reusable template remains credential-free: template reuse never copies a runtime identity, credential, or grant. Commissioning MUST give the instance its own least-privilege authentication principal and protected credential, bind its Factory employee identity to its Board agent and machine identity, register and read back that binding through the supported Board API, and prove the Board reachable. If any of those checks fails, commissioning fails closed and the instance does not enter `pilot`, `scheduled`, or `live`.
+
+A role may narrow job capabilities but may not remove this obligation. Before work starts, the manager's delegation exists as a Board task. The instance registers at session start, accepts only Board-assigned work, claims the task, renews its lease while working, attaches result/evidence and submits it for review, and sends a task-scoped ask when human input is required. Manager/human authority to create, assign, cancel, approve, and finally dispose work is unchanged. Human-readable direction and producer evidence remain durable trails; Board assignment and lifecycle state are canonical.
+
+#### Delegation
+
+- A delegating instance, including the Chief, creates the Board ticket first.
+- It links the direction file path and SHA-256 digest in that ticket.
+- It remains accountable for the delegated outcome and its disposition.
+- It may delegate only work that was assigned to it.
 
 ## Board participation (common semantics)
 
@@ -209,14 +222,14 @@ participation means**, not a grant to perform it.
 by hiring/commissioning, which must establish and verify an authoritative
 binding among the Factory `employee_id`/`board_ref`, the Board authentication
 principal, and the Board agent id, plus a least-privilege resource grant for
-that instance.** A `DeploymentRecord`
-stores references only; it does not enforce this binding, and current generic
-Board task/message/poll paths do not enforce it either. This base supplies no
-Board principal, secret, binding, or authority. Manager-mediated actions must
-be recorded as the manager's actions and cannot prove instance-owned claim,
-result, message, or acknowledgement behavior. Whether that mediated evidence
-satisfies a parent DoD is an explicit acceptance decision, never an inference.
-The foundation does not make every instance a manager.
+that instance.** Registry references do not authenticate by themselves;
+commissioning establishes the binding and the Board enforces it server-side.
+This base supplies no Board principal, secret, binding, or authority.
+Manager-mediated actions must be recorded as the manager's actions and cannot
+prove instance-owned claim, result, message, or acknowledgement behavior.
+Whether that mediated evidence satisfies a parent DoD is an explicit
+acceptance decision, never an inference. The foundation does not make every
+instance a manager.
 Missing authority means stop: never a fabricated assignment, result, or identity.
 
 ## Assignment and definition of done

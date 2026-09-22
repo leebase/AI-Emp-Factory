@@ -1,15 +1,15 @@
 {
   "distribution": "AI-Emp-Factory",
-  "manifest_version": 1,
+  "manifest_version": 2,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-17T18:55:57Z",
-  "dest": "/tmp/claude-1000/-home-lee-projects-chief-of-staff/59bd60e1-3d0a-43fe-ad29-ddee05468993/scratchpad/AI-Emp-Factory-pinned",
+  "built_at_utc": "2026-09-22T18:37:21Z",
+  "dest": "/tmp/bonnie-release-20260922/candidate",
   "built_from": "revision",
   "user_data_boundary": "user/",
   "allow_dirty": false,
-  "component_count": 5,
-  "total_files_copied": 102,
+  "component_count": 6,
+  "total_files_copied": 201,
   "components": [
     {
       "name": "router",
@@ -80,14 +80,100 @@
       "files_copied": 9
     },
     {
-      "name": "factory",
-      "source": "/home/lee/projects/ai-employee-factory",
-      "pin": "d126a4f",
+      "name": "board",
+      "source": "/home/lee/projects/agent-board",
+      "pin": "1f491966e5bdc98203e65d998a363f39fff650f2",
       "pinned": true,
       "source_mode": "revision",
-      "resolved_commit": "d126a4f30b02d82e580565f193d289e975b5b697",
-      "head_commit": "d126a4f30b02d82e580565f193d289e975b5b697",
-      "pin_match": true,
+      "resolved_commit": "1f491966e5bdc98203e65d998a363f39fff650f2",
+      "head_commit": "f04188d7a0dccbf138363c3552547d425f9bfbb8",
+      "pin_match": false,
+      "clean_by_construction": true,
+      "method": "copy-and-build",
+      "dirty": false,
+      "dirty_allowed": false,
+      "dirty_paths": [],
+      "copied_paths": [
+        {
+          "from": "go.mod",
+          "to": "board/source/go.mod",
+          "files": 1
+        },
+        {
+          "from": "go.sum",
+          "to": "board/source/go.sum",
+          "files": 1
+        },
+        {
+          "from": "cmd",
+          "to": "board/source/cmd",
+          "files": 1
+        },
+        {
+          "from": "internal",
+          "to": "board/source/internal",
+          "files": 82
+        },
+        {
+          "from": "deploy/user-service",
+          "to": "board/deploy/user-service",
+          "files": 9
+        }
+      ],
+      "copy_notes": [
+        "Runtime command source only; tests and repository history are not release content.",
+        "Runtime packages and embedded SQL migrations only; test fixtures are excluded.",
+        "Whitelisted Board-owned provisioning and verification seam used by the portable bootstrap; no instance declarations, proposed records, auth, database, or operational evidence is copied."
+      ],
+      "files_copied": 94,
+      "build": {
+        "kind": "go-linux-amd64",
+        "source_commit": "1f491966e5bdc98203e65d998a363f39fff650f2",
+        "source_version": "agent-board@1f491966e5bdc98203e65d998a363f39fff650f2",
+        "working_directory": "/tmp/build_distribution.mGAg33/board",
+        "command": [
+          "env",
+          "CGO_ENABLED=0",
+          "GOOS=linux",
+          "GOARCH=amd64",
+          "GOCACHE=/tmp/build_distribution.mGAg33/go-build-cache",
+          "/tmp/agent-board-go-G6B22W/go/bin/go",
+          "build",
+          "-buildvcs=false",
+          "-trimpath",
+          "-ldflags",
+          "-s -w -X main.version=agent-board@1f491966e5bdc98203e65d998a363f39fff650f2",
+          "-o",
+          "/tmp/bonnie-release-20260922/candidate/board/bin/agent-board-linux-amd64",
+          "./cmd/agent-board"
+        ],
+        "target": {
+          "cgo_enabled": false,
+          "goos": "linux",
+          "goarch": "amd64"
+        },
+        "toolchain": {
+          "selector": "GO_BINARY",
+          "path": "/tmp/agent-board-go-G6B22W/go/bin/go",
+          "version": "go version go1.26.4 linux/amd64",
+          "sha256": "86b748c64de0175db601f56805251f3b08cd12bffb927ad5c68ef8497c50c7ba"
+        },
+        "artifact": {
+          "path": "board/bin/agent-board-linux-amd64",
+          "sha256": "99dd63eede7321c1e72fde3c632e3066d6a088e6f6e834dc97724fdd9459367b",
+          "reported_version": "agent-board@1f491966e5bdc98203e65d998a363f39fff650f2"
+        }
+      }
+    },
+    {
+      "name": "factory",
+      "source": "/home/lee/projects/ai-employee-factory",
+      "pin": "40ed39798e452286e52319b67ad190ab5affc78f",
+      "pinned": true,
+      "source_mode": "revision",
+      "resolved_commit": "40ed39798e452286e52319b67ad190ab5affc78f",
+      "head_commit": "dcfed0c3f83bda922945b5005fc22c86f6f3a889",
+      "pin_match": false,
       "clean_by_construction": true,
       "method": "copy",
       "dirty": false,
@@ -120,6 +206,16 @@
           "files": 1
         },
         {
+          "from": "employees/ordinary/board_seam",
+          "to": "factory/employees/ordinary/board_seam",
+          "files": 4
+        },
+        {
+          "from": "scripts/board_delegate.py",
+          "to": "factory/scripts/board_delegate.py",
+          "files": 1
+        },
+        {
           "from": "employees/ordinary/dev-chief-of-staff",
           "to": "chief",
           "files": 4
@@ -131,9 +227,11 @@
         "project and employee templates, kept in their own subfolders (D298)",
         "registry documentation; the concrete records/ entries are not shipped",
         "registry generator/reconciler; it resolves ROOT as its own parent's parent, which is why factory/ keeps the source-relative layout",
+        "Credential-free shared participant API. Per-instance endpoint packets and credentials are created on the target outside the checkout.",
+        "Manager-side supported Board delegation seam; target-local credential roots remain external to the release tree.",
         "the Chief package: TEMPLATE PARTS ONLY (Packet P5-1, D266). The source package's journal/, decisions.md, outputs/ and state/assignment.json are one employee's accumulated memory and work; shipping them would hand one user's history to another. It is a copy spec inside the factory component, not a fifth component, because it is pinned to the same source and commit as the rest of the Factory."
       ],
-      "files_copied": 12
+      "files_copied": 17
     },
     {
       "name": "stage-workers",
@@ -142,8 +240,8 @@
       "pinned": true,
       "source_mode": "revision",
       "resolved_commit": "8f40e2ba2a9081a257a1769fa52f61815203fc86",
-      "head_commit": "8f40e2ba2a9081a257a1769fa52f61815203fc86",
-      "pin_match": true,
+      "head_commit": "84dc6f991e4239c1d98eb68fd264d5d7a988c2e1",
+      "pin_match": false,
       "clean_by_construction": true,
       "method": "copy",
       "dirty": false,
@@ -198,5 +296,63 @@
       "copy_notes": [],
       "files_copied": 1
     }
-  ]
+  ],
+  "transforms": [
+    {
+      "id": "chief-role-common-base-path",
+      "path": "chief/AGENTS.md",
+      "expected_count": 1,
+      "find_sha256": "7fc889c6bab775f5762ad7e43dc1812c16f646fc9e0f44e6142468f094587da4",
+      "replace_sha256": "a8cc9b2310b83fb873bce5317c22d7e36f28d3077771e0a6aa0bd3dbd92a8180",
+      "result_sha256": "25d9c50d0f4441882302119bcf54efbc646b70ed98c5ee8245fc297c4ceb8c05",
+      "reason": "The Chief package is relocated under the distribution root; its common base ships under factory/."
+    },
+    {
+      "id": "chief-role-root-entry",
+      "path": "chief/AGENTS.md",
+      "expected_count": 1,
+      "find_sha256": "d3fedda72fabda43316eb810a145a8934ed49f2b65dcd7489cae49848ce49fd5",
+      "replace_sha256": "65832e62402a4b0cb2cbcb9a91ac756196ffb4889dc5f3c060c9272f59516648",
+      "result_sha256": "25d9c50d0f4441882302119bcf54efbc646b70ed98c5ee8245fc297c4ceb8c05",
+      "reason": "Opening chief/ alone cannot load the root enforcement policy or the relocated common base."
+    },
+    {
+      "id": "chief-readme-root-entry",
+      "path": "chief/README.md",
+      "expected_count": 1,
+      "find_sha256": "47e66932bf74ab9901d58a6122502b256680fa12f066987be07d2b0c3dc22154",
+      "replace_sha256": "cd3c0f9153c50450a38b39b581c6fa44eca5a0df442f19944e05a3afc446f11f",
+      "result_sha256": "2e31b4c9f72c04a184dbb53e19b660e67d1e7c1279bf7b1471d43b98b7586410",
+      "reason": "The generated distribution has a root entry and root-relative policies; chief/ is not a standalone runtime root."
+    }
+  ],
+  "runtime_templates": {
+    "required": true,
+    "files": [
+      {
+        "source": "board_runtime.py",
+        "destination": "bin/board-runtime",
+        "sha256": "195d2b7b3d684dc405eb63cc3f4c4836a0bba20bc84f8245c1fbc2b5dc979a4f",
+        "executable": true
+      },
+      {
+        "source": "install.sh",
+        "destination": "bin/install",
+        "sha256": "84f1655785be02d9f9d226490342fb422438418cf0e343ba783b7b6985eb1a65",
+        "executable": true
+      },
+      {
+        "source": "README.md",
+        "destination": "INSTALL.md",
+        "sha256": "8d40cb630cf146a69a31746710c6b0f37d1787cf2944d2998e749ec6bb6a276b",
+        "executable": false
+      },
+      {
+        "source": "board_worker.py",
+        "destination": "bin/board-worker",
+        "sha256": "5fcee6d39422956b6d5668ff4c7834a7596f6416be1944f9d2e068a9df504d57",
+        "executable": true
+      }
+    ]
+  }
 }

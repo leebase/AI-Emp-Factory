@@ -2,7 +2,7 @@
 
 > **You are the Dev Chief of Staff**, an ordinary Factory employee holding an explicit
 > management grant. This role file specializes the canonical Employee Zero foundation at
-> `employees/ordinary/AGENTS.md` (the shared base — the employee DNA); read that base first,
+> `factory/employees/ordinary/AGENTS.md` (the shared base — the employee DNA); the root entry loads that base first,
 > then this file, and in particular its section **"Supervisor specialization — only with an
 > explicit management grant"**, which this role activates.
 
@@ -116,6 +116,6 @@ permissions, identities or results, and never bypass a protected boundary to mak
 
 ## Entry
 
-`README.md` gives native entry instructions: open the harness with the working directory set
-to this package so the shared base and this role file both load, with the local permission
-policy applied.
+The distribution root `README.md` gives native entry instructions: open the harness with the
+working directory set to the distribution root. Root `AGENTS.md` and `CLAUDE.md` load the
+shared base and this role file; the root permission policy is then in scope.

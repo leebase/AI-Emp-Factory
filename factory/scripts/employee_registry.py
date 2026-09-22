@@ -108,12 +108,13 @@ _DRAFT_ENTRY_KEYS = _ENTRY_KEYS | frozenset({"specification_body"})
 _INTERACTIVE_ENTRY_KEYS = (
     _ENTRY_KEYS - frozenset({"mission_name", "delivery_profile_ref"})
 ) | frozenset({"registration_ref"})
-# The additive Board participation trio. It is optional on commissioning
+# The additive Board participation trio. It is optional on draft/prepared
 # entries only, and all-or-none: a record without it carries no participant
 # binding. It never aliases the record-level ``principal_refs`` list.
 _PARTICIPATION_ENTRY_KEYS = frozenset({"principal_ref", "agent_id", "machine_id"})
 _EXPECTED_SEED_VERSION = "ai-employee-registry-seed/1.0"
-_RECONCILIATION_VERSION = "ai-employee-registry-reconciliation/1.1"
+_RECONCILIATION_VERSION = "ai-employee-registry-reconciliation/1.2"
+_OPERATING_STATES = frozenset({"pilot", "scheduled", "live"})
 
 
 def _strict_keys(
@@ -198,13 +199,13 @@ def load_seed(path: Path = DEFAULT_SEED) -> dict[str, Any]:
             optional_keys: frozenset[str] = frozenset()
         elif record_mode == "interactive":
             entry_keys = _INTERACTIVE_ENTRY_KEYS
-            optional_keys = frozenset({"delivery_profile_ref"})
+            optional_keys = frozenset({"delivery_profile_ref"}) | _PARTICIPATION_ENTRY_KEYS
         elif record_mode == "commissioning":
             entry_keys = _INTERACTIVE_ENTRY_KEYS
             optional_keys = frozenset({"delivery_profile_ref"}) | _PARTICIPATION_ENTRY_KEYS
         else:
             entry_keys = _ENTRY_KEYS
-            optional_keys = frozenset()
+            optional_keys = _PARTICIPATION_ENTRY_KEYS
         entry = _strict_keys(
             raw_entry,
             entry_keys,
@@ -419,6 +420,92 @@ def _binding_view(record: Any) -> dict[str, Any]:
     record binds, not when it was written.
     """
     return {k: v for k, v in record.to_dict().items() if k not in _PROVENANCE_STAMPS}
+
+
+def _binding_missing_fields(record: Any) -> list[str]:
+    """Return missing or mismatched fields in the instance Board binding."""
+
+    identity = record.board_identity
+    missing = [
+        field
+        for field in ("board_ref", "principal_ref", "agent_id", "machine_id")
+        if not isinstance(getattr(identity, field, None), str)
+        or not getattr(identity, field).strip()
+    ]
+    if "agent_id" not in missing and identity.agent_id != record.employee_id:
+        missing.append("agent_id=employee_id")
+    if (
+        "principal_ref" not in missing
+        and "machine_id" not in missing
+        and identity.principal_ref == identity.machine_id
+    ):
+        missing.append("principal_ref!=machine_id")
+    return missing
+
+
+def _has_complete_binding(record: Any) -> bool:
+    return not _binding_missing_fields(record)
+
+
+def _has_grant_reference(record: Any) -> bool:
+    """A scope reference is metadata only; its value is never a credential."""
+
+    return bool(record.credential_scope_refs)
+
+
+def _is_participant(record: Any) -> bool:
+    """Whether a record has both the complete binding and a grant reference."""
+
+    return _has_complete_binding(record) and _has_grant_reference(record)
+
+
+def _record_classification(
+    record: Any | None, entry: dict[str, Any] | None
+) -> str:
+    """Classify registry posture without treating ``board_ref`` as participation."""
+
+    if record is None:
+        mode = entry.get("record_mode") if entry is not None else None
+        if mode == "draft":
+            return "draft"
+        # No record on disk: nothing can be commissioned, whatever the seed
+        # entry calls itself. Reconcile also raises RECORD_MISSING for it.
+        return "missing"
+    state = record.lifecycle_state.value
+    if state == LifecycleState.DRAFT.value:
+        return "draft"
+    if state == LifecycleState.COMMISSIONING.value:
+        return "commissionable" if _is_participant(record) else "prepared"
+    return "commissioned"
+
+
+def _report_operating_compliance(
+    record: Any,
+    employee_id: str,
+    lifecycle_state: str,
+    findings: list[dict[str, str]],
+    *,
+    emit_finding: bool = True,
+) -> str:
+    """Report, but never repair, an active record that cannot participate."""
+
+    if lifecycle_state not in _OPERATING_STATES:
+        return "not_applicable"
+    missing = _binding_missing_fields(record)
+    if not _has_grant_reference(record):
+        missing.append("credential_scope_refs/grant")
+    if missing and emit_finding:
+        findings.append(
+            _finding(
+                "BOARD_PARTICIPATION_NONCOMPLIANT",
+                "registry record",
+                f"operating record for {employee_id} lacks the complete Board "
+                "binding/grant; missing "
+                + ", ".join(missing)
+                + "; a bare board_ref does not establish participation",
+            )
+        )
+    return "noncompliant" if missing else "compliant"
 
 
 def _disposition_override(mission_dir: Path, observed: Any) -> Any:
@@ -775,6 +862,7 @@ def reconcile(
     records: dict[str, Any] = {}
     findings_by_employee: dict[str, list[dict[str, str]]] = {}
     effective_states: dict[str, str] = {}
+    board_compliance: dict[str, str] = {}
     invalid_record_ids: set[str] = set()
     duplicate_values: dict[str, list[str]] = {
         "employee_id": [],
@@ -847,6 +935,17 @@ def reconcile(
                 _finding("RECORD_MISSING", "registry", "no deployment record exists")
             )
             continue
+        # Legacy operating records are classified and marked noncompliant
+        # without rewriting their bytes. The live record mode additionally
+        # emits the detailed reconciliation finding; older interactive and
+        # prepared projections retain their historical finding surface.
+        board_compliance[employee_id] = _report_operating_compliance(
+            record,
+            employee_id,
+            record.lifecycle_state.value,
+            findings,
+            emit_finding=entry["record_mode"] == "live",
+        )
         if entry["record_mode"] == "draft":
             effective_states[employee_id] = LifecycleState.DRAFT.value
             expected_record = _safe_expected_record(
@@ -1028,6 +1127,14 @@ def reconcile(
         state = _parse_state(state_path)
         observed_state = _disposition_override(mission_dir, _observed_lifecycle(config, state)).value
         effective_states[employee_id] = observed_state
+        if record.lifecycle_state.value not in _OPERATING_STATES:
+            board_compliance[employee_id] = _report_operating_compliance(
+                record,
+                employee_id,
+                observed_state,
+                findings,
+                emit_finding=True,
+            )
         expected_record = _safe_expected_record(
             entry,
             seed["tenant_id"],
@@ -1171,6 +1278,14 @@ def reconcile(
         record_reports.append(
             {
                 "employee_id": employee_id,
+                "record_mode": entry.get("record_mode") if entry is not None else None,
+                "classification": _record_classification(record, entry),
+                "board_compliance": board_compliance.get(
+                    employee_id, "not_applicable"
+                ),
+                "board_participation": (
+                    _is_participant(record) if record is not None else False
+                ),
                 "mission_name": (
                     entry.get("mission_name", entry.get("registration_ref"))
                     if entry is not None
@@ -1241,19 +1356,17 @@ def _validate_instance_binding(record: Any, employee_id: str) -> None:
             f"canonical record is for {record.employee_id!r}, not the requested "
             f"{employee_id!r}"
         )
-    identity = record.board_identity
-    if not identity.has_participation_binding:
+    missing = _binding_missing_fields(record)
+    if missing:
         raise RegistryError(
-            "commissioning record is missing the complete Board participation binding"
+            "commissioning record is missing the complete Board participation binding: "
+            + ", ".join(missing)
         )
-    for field in ("board_ref", "principal_ref", "agent_id", "machine_id"):
-        value = getattr(identity, field)
-        if not isinstance(value, str) or not value.strip():
-            raise RegistryError(f"binding {field} must be a non-empty reference")
-    if identity.principal_ref == identity.machine_id:
-        raise RegistryError("principal_ref and machine_id must be distinct")
-    if identity.agent_id != record.employee_id:
-        raise RegistryError("agent_id must equal the canonical employee_id")
+    if not _has_grant_reference(record):
+        raise RegistryError(
+            "commissioning record has no credential-scope/grant reference; activation "
+            "into an operating state requires one (a bare Board binding is not participation)"
+        )
 
 
 def activate_employee_instance(

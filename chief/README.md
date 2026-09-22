@@ -10,12 +10,12 @@ installation's data.
 
 ## Native entry
 
-Open the harness with the working directory set to this package, so that:
+Open the harness with the working directory set to the distribution root, so that:
 
-1. the shared base `employees/ordinary/AGENTS.md` (the Employee Zero foundation) loads;
-2. this package's `AGENTS.md` role file loads and specializes it, activating the base's
-   supervisor specialization;
-3. the local `opencode.json` permission policy applies.
+1. root `AGENTS.md` or `CLAUDE.md` loads `factory/employees/ordinary/AGENTS.md` (the Employee Zero foundation);
+2. the same root entry loads `chief/AGENTS.md`, which specializes the base and activates
+   its supervisor specialization;
+3. the root `.claude/settings.json` and the relocated `chief/opencode.json` policies are in scope.
 
 Then read the most recent `journal/` entry before doing anything substantive.
 

@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Fixed Board participant entry point for the packaged bounded worker."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Sequence
+
+
+ROOT = Path(__file__).resolve().parent.parent
+SEAM_PARENT = ROOT / "factory" / "employees" / "ordinary"
+WORKSPACE_ROOT = ROOT / "user" / "workers" / "bounded-worker"
+
+# The distribution supplies this immutable package.  The executable exposes no
+# selector for identity, workspace, endpoint, credential, or transport.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SEAM_PARENT))
+
+from board_seam.cli import BoardError, UsageError, main as board_main  # noqa: E402
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    return board_main(
+        list(argv) if argv is not None else None,
+        employee_id="bounded-worker",
+        workspace_root=str(WORKSPACE_ROOT),
+    )
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except UsageError as error:
+        print(f"usage error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
+    except BoardError as error:
+        print(f"board error: {error}", file=sys.stderr)
+        raise SystemExit(3) from None

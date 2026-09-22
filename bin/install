@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(CDPATH= cd -- "$here/.." && pwd)
+operator=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --operator) [ "$#" -ge 2 ] || { echo "install: --operator requires a value" >&2; exit 2; }; operator=$2; shift 2 ;;
+    -h|--help) echo "usage: bin/install [--operator BOARD_ID]"; exit 0 ;;
+    *) echo "install: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+[ "$(uname -s)" = Linux ] || { echo "install: unsupported OS; Linux x86_64 is required" >&2; exit 1; }
+case "$(uname -m)" in x86_64|amd64) ;; *) echo "install: unsupported architecture; Linux x86_64 is required" >&2; exit 1 ;; esac
+
+for command in python3 git claude; do
+  command -v "$command" >/dev/null 2>&1 || { echo "install: required command is missing: $command" >&2; exit 1; }
+done
+[ -f "$root/requirements.txt" ] || { echo "install: requirements.txt is missing" >&2; exit 1; }
+[ -x "$root/board/bin/agent-board-linux-amd64" ] || { echo "install: Board Linux/amd64 binary is missing or not executable" >&2; exit 1; }
+[ ! -L "$root/.venv" ] || { echo "install: refusing symlinked .venv" >&2; exit 1; }
+if [ ! -e "$root/.venv" ]; then
+  python3 -m venv "$root/.venv"
+elif [ ! -x "$root/.venv/bin/python" ]; then
+  echo "install: existing .venv is not a usable project-local environment" >&2
+  exit 1
+fi
+"$root/.venv/bin/python" -m pip install --disable-pip-version-check -r "$root/requirements.txt"
+
+if [ -n "$operator" ]; then
+  "$root/.venv/bin/python" "$root/bin/board-runtime" init --operator "$operator"
+else
+  "$root/.venv/bin/python" "$root/bin/board-runtime" init
+fi
+
+echo "install: complete; Board remains stopped until bin/board-runtime start (or serve)."
