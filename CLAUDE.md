@@ -5,3 +5,4 @@ from this distribution root so `.claude/settings.json` enforces the root policy.
 
 @factory/employees/ordinary/AGENTS.md
 @chief/AGENTS.md
+@user/config/chief/CLAUDE.md

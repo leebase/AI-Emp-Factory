@@ -56,9 +56,12 @@ checks, each with a named reason string:
   the route with a named reason.
 * author-route independence (Chief round 15, packet D) — applied only when
   an author route id is supplied *and* the role is ``review`` or
-  ``judge``: the author route itself and every candidate whose model
-  family equals the author's are excluded with the reason
-  ``independence``. The family is the route's ``family`` attribute when
+  ``judge``: the author route itself is always excluded. Same-family
+  candidates are excluded with ``independence`` for judge and by default
+  for review. A review rule explicitly declaring
+  ``prefer_different_family: false`` permits a different route in the
+  same family and discloses that limitation in its reasons. The family is
+  the route's ``family`` attribute when
   it carries a nonempty one, else the deterministic model-vendor-prefix
   fallback (namespaced model id: namespace before ``/``; unnamespaced:
   leading token before the first ``-``). Independence is an
@@ -161,6 +164,33 @@ roles carry no independence shape, so the check is not applicable there.
 _INDEPENDENCE_REASON = "independence"
 """Exact exclusion reason for the author-route independence check."""
 
+_SAME_FAMILY_REVIEW_DISCLOSURE = (
+    "same-family review: different route, same model family as author "
+    "(limited independence; explicit review policy)"
+)
+"""Informational reason on a permitted same-family review route."""
+
+
+def _review_allows_same_family(catalog: StaffingCatalog) -> bool:
+    """Allow same-family review only for one explicit, valid review declaration.
+
+    Absent, duplicate, or malformed in-memory rules retain the strict default.
+    The catalog loader separately rejects missing and malformed schema fields.
+    """
+    rules = [
+        rule
+        for rule in catalog.policy.reviewer_independence
+        if rule.reviewer_ref == "review"
+    ]
+    return (
+        len(rules) == 1
+        and rules[0].not_same_worker_as == "authors"
+        and rules[0].prefer_different_family is False
+        and rules[0].fresh_eyes_mode is None
+        and rules[0].second_opinion_mode is None
+    )
+
+
 _ROUTE_FAMILY_SOURCE_ATTR = "route.family"
 _MODEL_FAMILY_SOURCE_PREFIX = "model_vendor_prefix"
 """Family-resolution source labels (Chief round 15, packet D).
@@ -232,8 +262,9 @@ class EligibilityRow:
     """One catalog route's eligibility under one class/availability/terms set.
 
     ``reasons`` is an ordered tuple of named diagnostic strings. The
-    ``inherited channel record`` reason is informational; every other reason
-    excludes the route. ``availability_*`` report the snapshot's channel
+    ``inherited channel record`` and the same-family review disclosure are
+    informational; every other reason excludes the route. ``availability_*``
+    report the snapshot's channel
     headroom (health string, limiting bucket's raw status badge, smallest
     remaining fraction) whatever the channel kind — a reported ``unknown``
     health on a metered/local channel is informational only and never a veto.
@@ -614,13 +645,13 @@ def evaluate_eligibility(
             equal :func:`canonical_class_key` of the structured fields or
             :class:`StaffingEligibilityError` is raised.
         author_route_id: Optional author route id (Chief round 15, packet
-            D). Only for the ``review``/``judge`` roles: the author route
-            itself and every candidate whose model family equals the
-            author's (see :func:`resolve_route_family`) are excluded with
-            the reason ``independence`` — an author/candidate comparison
-            only, never a class-to-model preference (D206). For other
-            roles the check is not applicable and no reason is added.
-            An unknown id fails closed with a named
+            D). Only for ``review``/``judge``: the author route itself is
+            excluded with ``independence``. Same-family candidates are also
+            excluded, except when review policy explicitly declares
+            ``prefer_different_family: false``; then a different route may
+            be eligible with an informational same-family disclosure.
+            Judge always requires a different family. For other roles the
+            check is not applicable. An unknown id fails closed with a named
             :class:`StaffingEligibilityError`.
         availability: An already-normalised
             :class:`~lee_llm_router.availability.AvailabilitySnapshot`.
@@ -645,7 +676,8 @@ def evaluate_eligibility(
         channel with no recorded badge — missing record, metered/local
         channel, or a snapshot failure status — fails closed to the
         committed ``NO DATA`` badge (multiplier 1.0).
-        ``eligible`` is exactly ``not reasons``; no ranking, sorting,
+        ``eligible`` is true when there are no exclusion reasons;
+        informational reasons may still be present. No ranking, sorting,
         probability, or choice is applied.
 
     Raises:
@@ -678,11 +710,15 @@ def evaluate_eligibility(
 
     independence_applies = False
     author_family: str | None = None
+    same_family_review_allowed = False
     if author_route_id is not None:
         author_route = resolve_author_route(catalog, author_route_id)
         if role in _INDEPENDENCE_ROLES:
             independence_applies = True
             author_family, _author_source = resolve_route_family(author_route)
+            same_family_review_allowed = (
+                role == "review" and _review_allows_same_family(catalog)
+            )
 
     rows: list[EligibilityRow] = []
     for route in catalog.routes.routes:
@@ -796,8 +832,13 @@ def evaluate_eligibility(
 
         if independence_applies:
             candidate_family, _ = resolve_route_family(route)
-            if route.route_id == author_route_id or candidate_family == author_family:
+            if route.route_id == author_route_id:
                 reasons.append(_INDEPENDENCE_REASON)
+            elif candidate_family == author_family:
+                if same_family_review_allowed:
+                    informational_reasons.append(_SAME_FAMILY_REVIEW_DISCLOSURE)
+                else:
+                    reasons.append(_INDEPENDENCE_REASON)
 
         pricing: EligibilityPrice | None = None
         # Per-route pricing seam: the badge is the one derived for this

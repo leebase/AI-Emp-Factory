@@ -17,7 +17,8 @@ tool only; the shipped static Board binary does not require Go on the target.
 
 ## Install, then start here
 
-Run the generated installer from the distribution root and follow `INSTALL.md`:
+Start with `START-HERE.md` for the interactive Chief and `/supervise` setup.
+For Board installation, follow `INSTALL.md` from the distribution root:
 
     ./bin/install
 
@@ -73,13 +74,13 @@ The configuration in `router/config/staffing/` is shipped verbatim, with its `@â
 relocation tokens unresolved, so the tree works from wherever you cloned it.
 | Component | Source | Commit | Files |
 |---|---|---|---|
-| `router` | `/home/lee/projects/lee-llm-router` | `4305355f38bc096dbe101274c4bc5eb2db970c11` | 76 |
+| `router` | `/home/lee/projects/lee-llm-router` | `af3e43ecd34e7d1c619fbd7fad344a1607ec6126 (see lock)` | 76 |
 | `schemas` | `/home/lee/projects/ai-employee` | `2e5547f4808b98cbfdca4a167087b550d53c7a3d` | 9 |
 | `board` | `/home/lee/projects/agent-board` | `1f491966e5bdc98203e65d998a363f39fff650f2 (see lock)` | 94 |
 | `factory` | `/home/lee/projects/ai-employee-factory` | `40ed39798e452286e52319b67ad190ab5affc78f (see lock)` | 17 |
 | `stage-workers` | `/home/lee/projects/auto-orch` | `8f40e2ba2a9081a257a1769fa52f61815203fc86 (see lock)` | 4 |
 | `rate-table` | `/home/lee/projects/agent-orch` | `fbedba033dc79e91e0698b5c8a788c85e5b1be2d` | 1 |
 
-Built 2026-09-22T18:37:21Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
+Built 2026-09-22T21:49:30Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
 `user/` is owned by the user: the builder seeds it only when it is absent and
 never overwrites anything inside it.

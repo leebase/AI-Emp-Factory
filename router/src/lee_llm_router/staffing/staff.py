@@ -54,7 +54,6 @@ from lee_llm_router.staffing.eligibility import (
     EligibilityRow,
     StaffingEligibilityError,
     evaluate_eligibility,
-    resolve_route_family,
 )
 from lee_llm_router.staffing.evidence import join_evidence
 from lee_llm_router.staffing.ladder import LadderInput, calculate_ladder
@@ -336,15 +335,10 @@ def _select_review_route(
     uses the same proof-before-price boundary as the auto worker choice, so an
     unproven reviewer cannot displace a proven eligible reviewer.
 
-    Independence is evaluated against the actual author reference — the
-    explicit ``author_route_id`` when supplied, otherwise the selected worker
-    being reviewed (``excluded_route_id``).  The reviewed worker's route and
-    model family are *always* excluded too, even when an explicit author
-    reference differs from it: a reviewer that could equal the reviewed
-    worker (or share its family) is not independent of it.  Every exclusion
-    carries the exact ``independence`` reason, so an explicit-author case is
-    truthful and fails closed rather than naming a reviewer that is not
-    independent.
+    Evaluate against the explicit author when supplied, otherwise the selected
+    worker. When those are different routes, intersect a second eligibility
+    evaluation against the selected worker. This keeps exact-route exclusion,
+    family policy, and limited-independence disclosures in one policy engine.
     """
     try:
         rows = evaluate_eligibility(
@@ -354,7 +348,7 @@ def _select_review_route(
             size_band=size_band,
             language=language,
             domain_tags=domain_tags,
-            author_route_id=author_route_id,
+            author_route_id=author_route_id or excluded_route_id,
             availability=availability,
             at_date=at_date,
             openrouter_snapshot_path=openrouter_snapshot_path,
@@ -364,34 +358,51 @@ def _select_review_route(
         raise StaffServiceError(str(exc), kind="invalid_class", cause=exc) from exc
 
     evaluated = author_route_id is not None or excluded_route_id is not None
-    families = {
-        route.route_id: resolve_route_family(route)[0]
-        for route in catalog.routes.routes
-    }
-    excluded_family = (
-        families.get(excluded_route_id) if excluded_route_id is not None else None
-    )
-
-    def _independent(row: EligibilityRow) -> bool:
-        if excluded_route_id is not None and row.route_id == excluded_route_id:
-            return False
-        return not (
-            excluded_family is not None
-            and families.get(row.route_id) == excluded_family
-        )
-
-    effective_rows = tuple(
-        (
+    if (
+        author_route_id is not None
+        and excluded_route_id is not None
+        and author_route_id != excluded_route_id
+    ):
+        try:
+            worker_rows = evaluate_eligibility(
+                catalog,
+                role=REVIEW_ROLE,
+                oracle_type=oracle_type,
+                size_band=size_band,
+                language=language,
+                domain_tags=domain_tags,
+                author_route_id=excluded_route_id,
+                availability=availability,
+                at_date=at_date,
+                openrouter_snapshot_path=openrouter_snapshot_path,
+                rate_table_path=rate_table_path,
+            )
+        except StaffingEligibilityError as exc:
+            raise StaffServiceError(str(exc), kind="invalid_class", cause=exc) from exc
+        worker_by_route = {row.route_id: row for row in worker_rows}
+        effective_rows = tuple(
             replace(
                 row,
-                reasons=row.reasons + ("independence",),
-                eligible=False,
+                reasons=tuple(
+                    dict.fromkeys(
+                        row.reasons
+                        + tuple(
+                            reason.replace(
+                                "same model family as author",
+                                "same model family as selected worker",
+                            )
+                            if reason.startswith("same-family review:")
+                            else reason
+                            for reason in worker_by_route[row.route_id].reasons
+                        )
+                    )
+                ),
+                eligible=row.eligible and worker_by_route[row.route_id].eligible,
             )
-            if row.eligible and not _independent(row)
-            else row
+            for row in rows
         )
-        for row in rows
-    )
+    else:
+        effective_rows = rows
 
     eligible = [row for row in effective_rows if row.eligible]
     proven = [row for row in eligible if proof.get(row.route_id) is ProofStatus.PROVEN]
@@ -554,12 +565,30 @@ def _staff_auto(
             (author_route_id or selected) if review_independence_evaluated else None
         ),
     )
+    rendered_text = render_text(block)
+    if review_route is not None and review_row is not None and any(
+        "limited independence" in reason for reason in review_row.reasons
+    ):
+        # The compact block's standard review line says "independent of" its
+        # reference. A policy-permitted same-family route has only limited
+        # independence, so state the exact route comparisons and disclosure.
+        reference = author_route_id or selected
+        comparison = f"distinct from {reference}"
+        if author_route_id is not None and selected != author_route_id:
+            comparison = (
+                f"distinct from author {author_route_id}; "
+                f"distinct from selected {selected}"
+            )
+        rendered_text = rendered_text.rsplit("\n", 1)[0] + (
+            f"\nReview: {review_route} (eligible, {comparison}; "
+            f"{block.review_reason})"
+        )
     return StaffResult(
         mode=MODE_AUTO,
         role=role,
         class_key=class_key,
         at_date=at_date.isoformat(),
-        text=render_text(block),
+        text=rendered_text,
         payload=render_json(block),
         block=block,
     )

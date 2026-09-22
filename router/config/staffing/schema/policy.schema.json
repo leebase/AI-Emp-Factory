@@ -213,7 +213,7 @@
       "required": ["reviewer_ref", "decision", "source"],
       "oneOf": [
         {
-          "description": "Shape A: the faithful archived worker-separation shape with a required different-family preference.",
+          "description": "Shape A: worker separation with an explicitly declared different-family preference. False permits a different review route in the author's family; the author route itself remains excluded.",
           "type": "object",
           "additionalProperties": false,
           "required": ["reviewer_ref", "not_same_worker_as", "prefer_different_family", "decision", "source"],
@@ -224,8 +224,8 @@
               "$ref": "#/$defs/stableRef"
             },
             "prefer_different_family": {
-              "description": "The archived rule requires preference for a different model family.",
-              "const": true
+              "description": "Whether review requires a different model family. The declaration is required; false is an explicit same-family review opt-in.",
+              "type": "boolean"
             },
             "decision": { "$ref": "#/$defs/independenceDecision" },
             "source": { "$ref": "#/$defs/independenceSource" }

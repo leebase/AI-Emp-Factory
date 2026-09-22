@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""Operator-owned Bonnie Chief setup. Copied to bin/chief-runtime by the builder.
+
+Only ``start`` launches a provider, and it launches the operator's interactive
+Chief session. Worker dispatch remains exclusively the staffing router's job.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shlex
+import sys
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+
+
+SONNET = "claude-claude-sonnet-5-high-anthropic-sub"
+OPUS = "claude-claude-opus-5-5-medium-anthropic-sub"
+OPUS_MODEL = "claude-opus-5-5"
+CATALOG_NAMES = ("routes", "channels", "terms", "policy", "classes", "crews")
+
+
+class SetupError(RuntimeError):
+    """Actionable operator setup refusal."""
+
+
+def distribution_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _check_dir(path: Path) -> None:
+    if path.is_symlink() or (path.exists() and not path.is_dir()):
+        raise SetupError(f"directory is not a real directory: {path}")
+    if path.parent != path:
+        _check_dir(path.parent)
+    if not path.exists():
+        path.mkdir(mode=0o700)
+
+
+def _write_once(path: Path, data: str) -> bool:
+    """Create only; an edited or replaced file requires operator resolution."""
+    _check_dir(path.parent)
+    if path.is_symlink():
+        raise SetupError(f"refusing symlink: {path}")
+    if path.exists():
+        if not path.is_file() or path.read_bytes() != data.encode():
+            raise SetupError(f"existing configuration differs; inspect and reconcile manually: {path}")
+        return False
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as output:
+        output.write(data)
+    return True
+
+
+def _blocks(document: str, key: str) -> list[str]:
+    """Select unchanged YAML list records without requiring PyYAML at setup."""
+    match = re.search(rf"(?m)^{re.escape(key)}:\s*$", document)
+    if not match:
+        raise SetupError(f"shipped catalog has no {key} list")
+    tail = document[match.end():]
+    end = re.search(r"(?m)^[A-Za-z_][A-Za-z_0-9]*:\s*", tail)
+    if end:
+        tail = tail[:end.start()]
+    return ["  - " + part for part in re.split(r"(?m)^  - ", tail)[1:]]
+
+
+def _named(blocks: list[str], field: str, value: str) -> str:
+    found = [b for b in blocks if re.search(rf"(?m)^  - {re.escape(field)}: {re.escape(value)}\s*$", b)]
+    if len(found) != 1:
+        raise SetupError(f"shipped catalog must contain exactly one {field}={value}")
+    return found[0].rstrip() + "\n"
+
+
+def _rate_entry(source: Path) -> str:
+    if not source.is_file() or source.is_symlink():
+        raise SetupError(f"supply a reviewed rate table with --rate-table: {source}")
+    text = source.read_text(encoding="utf-8")
+    if not re.search(r"(?m)^rates:\s*$", text):
+        raise SetupError(f"rate table has no rates mapping: {source}")
+    for model in ("claude-sonnet-5", OPUS_MODEL):
+        match = re.search(rf"(?m)^  {re.escape(model)}:\s*$", text)
+        if not match:
+            raise SetupError(f"rate table lacks {model}; supply both configured model rows")
+        tail = text[match.end():]
+        next_row = re.search(r"(?m)^  [^ #][^:]*:\s*$", tail)
+        row = tail[:next_row.start()] if next_row else tail
+        for field in ("input_usd_per_1m", "output_usd_per_1m"):
+            price = re.search(rf"(?m)^    {field}:\s*([0-9]+(?:\.[0-9]+)?)\s*$", row)
+            if not price:
+                raise SetupError(f"{model} requires a numeric {field} in {source}")
+    return text
+
+
+def _catalog(root: Path, rate_source: Path) -> dict[str, str]:
+    source = root / "router" / "config" / "staffing"
+    docs = {name: (source / f"{name}.yaml").read_text(encoding="utf-8") for name in CATALOG_NAMES}
+    sonnet = _named(_blocks(docs["routes"], "routes"), "route_id", SONNET)
+    old_opus = _named(_blocks(docs["routes"], "routes"), "route_id", "claude-claude-opus-5-medium-anthropic-sub")
+    opus = old_opus.replace("claude-opus-5", OPUS_MODEL)
+    # The route metadata is inherited from the equivalent Claude medium
+    # route. Its model id is explicit; pricing comes only from the operator.
+    routes = "routes:\n" + sonnet + opus
+    channels = """channels:
+  - channel_id: anthropic-sub
+    kind: subscription
+    fee_usd_month:
+      - effective_from: "2026-09-22"
+        value: unknown
+    windows: [rolling-5h, weekly]
+    harness_lock: [claude]
+    replacement_price_ref: operator-provided rate table
+"""
+    terms = """terms:
+  - channel_ref: anthropic-sub
+    kind: subscription
+    effective_from: "2026-09-22"
+    fee_usd_month: unknown
+    source: "Bonnie operator setup; subscription fee not supplied"
+    decision_price_ref: "marginal(badge multiplier × operator-configured reference rate table)"
+    reporting_price_ref: "operator-configured reference rate table"
+""" + docs["terms"][docs["terms"].index("badge_multipliers:"):]
+    policy = docs["policy"]
+    # Preserve the shipped review rule shape, with Lee's explicit Bonnie-only
+    # same-provider authorization; the judge rule remains strict.
+    policy, changes = re.subn(
+        r"(?ms)^reviewer_independence:\n.*?(?=^spend_caps:)",
+        """reviewer_independence:
+  - reviewer_ref: review
+    not_same_worker_as: authors
+    prefer_different_family: false
+    decision: "Bonnie single-provider review may use a distinct Anthropic route; the exact author route remains excluded"
+    source: "Lee's 2026-09-22 Bonnie operator-ready authorization"
+  - reviewer_ref: judge
+    second_opinion_mode: different-family-than-author
+    decision: "A judge remains a different-family second opinion"
+    source: "Shipped router judge policy, unchanged by Bonnie review authorization"
+
+""",
+        policy,
+    )
+    if changes != 1:
+        raise SetupError("shipped review policy shape changed; refusing implicit policy rewrite")
+    # Preserve shipped model restrictions, including rules for absent routes.
+    policy = policy.replace("    - channel_id: gemini-sub\n      reserve_fraction: 0.10\n", "")
+    policy = "\n".join(line for line in policy.splitlines() if not line.lstrip().startswith("#")) + "\n"
+    crews = f"""crews:
+  - crew_id: bonnie-anthropic
+    kind: interactive
+    supervisor_route: {OPUS}
+    worker_routes:
+      impl: [{SONNET}, {OPUS}]
+      plan: [{SONNET}]
+      review: [{OPUS}, {SONNET}]
+    reviewer_route: {OPUS}
+    escalation_ladder: [{SONNET}, {OPUS}]
+    authority: chief
+    evidence_ref: "Bonnie operator setup, 2026-09-22; explicit Sonnet author and Opus reviewer/supervisor; same-family review authorized only for this product"
+"""
+    return {"routes": routes, "channels": channels, "terms": terms,
+            "policy": policy, "classes": docs["classes"], "crews": crews,
+            "pricing/rate_table.yaml": _rate_entry(rate_source)}
+
+
+CHIEF_ROLE = """# Bonnie Chief of Staff
+
+Open Claude Code at the distribution root. The root Employee Zero foundation and
+Chief specialization are the Chief's authority. User decisions and project
+architecture govern every packet. Use only the operator-installed Anthropic
+catalog and the router for dispatch. Do not edit the release's root role or
+permission policy. The operator launcher runs Opus 5.5 medium; attest your actual route as
+claude-claude-opus-5-5-medium-anthropic-sub unless the operator changes models.
+Use bonnie-anthropic and its explicit catalog under user/config/chief/staffing.
+Keep plans, direction and reports under user/. Never author the leaf deliverable.
+For Python verification you may run the distribution interpreter with -m unittest
+or -m pytest; inspect the project and use the plan's exact test command.
+Remain in the session until every child is terminal. Use native background
+Bash plus TaskOutput polling if detached shell wrappers are unavailable.
+No final response promising to report later while a child is live.
+Native Claude permissions are advisory application controls,
+not an operating-system sandbox.
+"""
+
+WORKER_ROLE = """# Bounded worker — role replacement
+
+You are the bounded author, not the Chief. This file explicitly replaces any
+Chief management specialization inherited from a parent directory. The shared
+Employee Zero foundation applies only without the Chief's manager grant.
+Work solely on the packet's exact owned paths in the supplied workdir. Return
+the requested artifact and evidence. You cannot approve or close Board tasks,
+delegate work, dispatch a provider, change router policy or grant yourself
+more scope. Escalate missing authority to the supervising Chief.
+"""
+
+REVIEW_ROLE = """# Bounded reviewer — role replacement
+
+You are a reviewer, not the Chief or author. This file explicitly replaces
+inherited Chief management and author specialization. Inspect the actual
+candidate and its stated architecture and tests. Write only the assigned
+review report; do not edit code, tests, the candidate, policy or Board state.
+You cannot approve Board tasks, delegate work or dispatch providers.
+State concrete findings and the evidence inspected. Native permissions are
+not an operating-system sandbox.
+"""
+
+
+def _settings(role: str, root: Path) -> str:
+    common_deny = ["Bash(./bin/board-runtime:*)", "Bash(bin/board-runtime:*)",
+                   "Bash(./bin/chief-runtime:*)", "Bash(bin/chief-runtime:*)",
+                   "Bash(./factory/scripts/board_delegate.py:*)",
+                   "Bash(./bin/lee-llm-router:*)", "Bash(bin/lee-llm-router:*)",
+                   "Bash(lee-llm-router:*)", "Bash(claude:*)", "Bash(codex:*)",
+                   "Bash(opencode:*)", "Bash(pi:*)", "Bash(omp:*)",
+                   "Edit(.claude/**)", "Edit(router/**)", "Edit(user/config/**)",
+                   "Edit(user/board/**)", "Edit(chief/**)", "Edit(bin/**)"]
+    for name in ("board-runtime", "chief-runtime", "lee-llm-router"):
+        common_deny.append(f"Bash({root / 'bin' / name}:*)")
+    for path in (root / '.claude', root / 'user/config', root / 'user/board', root / 'bin', root / 'router', root / 'factory', root / 'board', root / 'chief', root / 'stage-workers', root / 'schemas', root / '.venv', root / 'user/workers/bounded-worker/reviewer'):
+        common_deny.extend([f"Edit(/{path}/**)", f"Write(/{path}/**)"])
+    for path in (root / 'CLAUDE.md', root / 'AGENTS.md', root / 'MANIFEST.lock.json', root / 'requirements.txt', root / 'user/workers/bounded-worker/CLAUDE.md', root / 'user/workers/bounded-worker/AGENTS.md'):
+        common_deny.extend([f"Edit(/{path})", f"Write(/{path})"])
+    if role == "reviewer":
+        common_deny.append(f"Bash({root / 'bin/board-worker'}:*)")
+        permissions = {"defaultMode": "plan", "allow": ["Read(//**)"],
+            "deny": common_deny + ["Edit(**/*)", "Write(**/*)"]}
+        # Claude deny wins over allow; the reviewer report is emitted through
+        # the router's captured response, not via an authored code file.
+    else:
+        permissions = {"defaultMode": "acceptEdits", "allow": ["Read(//**)", f"Bash({root / 'bin/board-worker'}:*)"],
+                       "deny": common_deny}
+    return json.dumps({"permissions": permissions}, indent=2) + "\n"
+
+
+def _shim(root: Path) -> str:
+    sys.path.insert(0, str(root / "router" / "src"))
+    try:
+        from lee_llm_router.shims import render_shim
+    except ImportError as exc:
+        raise SetupError("shipped router shim renderer is unavailable; install distribution dependencies") from exc
+    rendered = render_shim("claude-code", command="supervise")
+    # Match the native Claude tool capabilities admitted by the root policy.
+    # The router still owns dispatch, process lifetime and attempt evidence.
+    begin = rendered.index("## Dispatch pattern")
+    end = rendered.index("## Hard command boundary", begin)
+    rendered = rendered[:begin] + """## Dispatch pattern
+
+1. Invoke the exact permitted router command through Bash. For a long run,
+   use Bash's native background mode, retaining its task handle.
+2. Keep this Chief session alive and poll that handle with TaskOutput in waits
+   of at most 60 seconds until it is terminal. Census is supplemental evidence;
+   it does not replace reading the terminal attempt and captured output.
+3. A bounded synchronous router call is also supported. Do not wrap dispatch
+   in setsid/nohup/bash -c or sleep loops: those are outside this native policy.
+   Never send a final response while a worker or reviewer remains running.
+
+""" + rendered[end:]
+    binary = "./bin/lee-llm-router"
+    catalog = shlex.quote(str(root / "user" / "config" / "chief" / "staffing"))
+    rate_table = shlex.quote(str(root / "user" / "config" / "chief" / "staffing" / "pricing" / "rate_table.yaml"))
+    rendered = rendered.replace("allowed-tools: Bash(lee-llm-router:*)", "allowed-tools: Bash(./bin/lee-llm-router:*)")
+    for command, replacement in {
+        "staff": f"{binary} staff --catalog-dir {catalog}",
+        "run": f"{binary} run --catalog-dir {catalog} --rate-table {rate_table}",
+        "census": f"{binary} census",
+        "classify-failure": f"{binary} classify-failure",
+        "next-action": f"{binary} next-action",
+        "evidence": f"{binary} evidence",
+    }.items():
+        rendered = re.sub(rf"(?<![\w/])lee-llm-router {re.escape(command)}(?=\s|`)",
+                          lambda _match: replacement, rendered)
+    author_workdir = shlex.quote(str(root / "user/workers/bounded-worker"))
+    reviewer_workdir = shlex.quote(str(root / "user/workers/bounded-worker/reviewer"))
+    rendered = rendered.replace("--oracle <oracle-cmd> --timeout", f"--oracle <oracle-cmd> --workdir {author_workdir} --timeout")
+    rendered = rendered.replace("--timeout <review-bound×60> --stall-minutes", f"--workdir {reviewer_workdir} --timeout <review-bound×60> --stall-minutes")
+    rendered += f"\nInstallation scope: launch the interactive Chief with `./bin/chief-runtime start` from the distribution root. For every author `run`, use `--workdir {root / 'user/workers/bounded-worker'}`; for every review `run`, use `--workdir {root / 'user/workers/bounded-worker/reviewer'}`. Pass absolute packet, class-derivation and owned paths when changing workdir; oracle paths must also resolve from the child workdir. The reviewer writes its report in the router response, not candidate code. Read the full captured reviewer response from the attempt record output directory. Check author and review route IDs before dispatch. Same-family review is authorized here but is not cross-family independence; the judge remains strict.\n"
+    marker = re.compile(r"(<!-- lee-llm-router shim v1 sha256=)[0-9a-f]{64}( -->\n)")
+    found = marker.search(rendered)
+    if not found:
+        raise SetupError("router renderer did not produce a managed shim marker")
+    body = rendered[found.end():]
+    return rendered[:found.start()] + found.group(1) + hashlib.sha256(body.encode()).hexdigest() + found.group(2) + body
+
+
+def generated(root: Path, rate_source: Path) -> dict[Path, str]:
+    chief = root / "user" / "config" / "chief"
+    worker = root / "user" / "workers" / "bounded-worker"
+    files = {chief / "AGENTS.md": CHIEF_ROLE, chief / "CLAUDE.md": CHIEF_ROLE,
+             worker / "AGENTS.md": WORKER_ROLE, worker / "CLAUDE.md": WORKER_ROLE + f"\nUse the fixed participant command `{root / 'bin/board-worker'}`. Register, poll/read the assigned task, upload produced output files, and submit review. Do not use the manager interface.\n",
+             worker / ".claude/settings.json": _settings("worker", root),
+             worker / "reviewer/AGENTS.md": REVIEW_ROLE,
+             worker / "reviewer/CLAUDE.md": REVIEW_ROLE,
+             worker / "reviewer/.claude/settings.json": _settings("reviewer", root),
+             root / ".claude/commands/supervise.md": _shim(root),
+             root / ".claude/settings.local.json": json.dumps({"permissions": {"allow": [
+                 "Bash(./.venv/bin/python -m unittest:*)", "Bash(.venv/bin/python -m unittest:*)",
+                 "Bash(./.venv/bin/python -m pytest:*)", "Bash(.venv/bin/python -m pytest:*)",
+                 f"Bash({root / '.venv/bin/python'} -m unittest:*)", f"Bash({root / '.venv/bin/python'} -m pytest:*)"
+             ]}}, indent=2) + "\n"}
+    catalog = _catalog(root, rate_source)
+    for name, content in catalog.items():
+        files[chief / "staffing" / (name if name.endswith(".yaml") else f"{name}.yaml")] = content
+    files[chief / "setup-state.json"] = json.dumps({
+        "schema_version": 1,
+        "rate_table_sha256": hashlib.sha256(catalog["pricing/rate_table.yaml"].encode()).hexdigest(),
+        "author_route": SONNET,
+        "review_route": OPUS,
+    }, sort_keys=True, indent=2) + "\n"
+    return files
+
+
+def _rate_path(root: Path, supplied: str | None) -> Path:
+    if supplied:
+        return Path(os.path.abspath(supplied))
+    installed = root / "user/config/chief/staffing/pricing/rate_table.yaml"
+    if installed.exists():
+        return installed
+    raise SetupError("setup needs --rate-table PATH with configured claude-sonnet-5 and claude-opus-5-5 price rows")
+
+
+def setup(root: Path, rate_source: Path) -> None:
+    files = generated(root, rate_source)
+    # Preflight all ancestors before any mutation (including existing chains).
+    for path in files:
+        for parent in path.parents:
+            if parent.is_symlink():
+                raise SetupError(f"refusing symlink ancestor: {parent}")
+    # Preflight every existing file before the first mutation.
+    for path, content in files.items():
+        if path.is_symlink() or (path.exists() and (not path.is_file() or path.read_bytes() != content.encode())):
+            raise SetupError(f"existing configuration differs; inspect and reconcile manually: {path}")
+    for path, content in files.items():
+        _write_once(path, content)
+    print(f"Chief setup ready at {root}; start a fresh Chief session with ./bin/chief-runtime start")
+
+
+def status(root: Path) -> int:
+    rate = root / "user/config/chief/staffing/pricing/rate_table.yaml"
+    try:
+        files = generated(root, rate)
+    except (SetupError, OSError) as exc:
+        print(f"Chief setup incomplete: {exc}")
+        return 1
+    missing = [str(path) for path, content in files.items() if not path.is_file() or path.is_symlink() or path.read_bytes() != content.encode()]
+    if missing:
+        print("Chief setup incomplete or locally edited: " + ", ".join(missing))
+        return 1
+    print(f"Chief setup files match at {root}; native CLI auth and end-to-end supervision remain to be verified")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    setup_parser = sub.add_parser("setup", help="install operator-owned Chief and bounded roles")
+    setup_parser.add_argument("--rate-table", help="reviewed reference rate table containing both Sonnet 5 and Opus 5.5")
+    sub.add_parser("status", help="inspect generated setup without changing it")
+    sub.add_parser("start", help="launch operator's interactive Chief session")
+    args = parser.parse_args(argv)
+    root = distribution_root()
+    try:
+        if args.command == "setup":
+            setup(root, _rate_path(root, args.rate_table))
+            return 0
+        if args.command == "status":
+            return status(root)
+        if status(root):
+            return 1
+        os.chdir(root)
+        env = os.environ.copy()
+        env["LEE_LLM_ROUTER_RATE_TABLE"] = str(root / "user/config/chief/staffing/pricing/rate_table.yaml")
+        env["PATH"] = str(root / "bin") + os.pathsep + env.get("PATH", "")
+        os.execvpe("claude", ["claude", "--model", OPUS_MODEL, "--effort", "medium"], env)
+    except (SetupError, OSError) as exc:
+        print(f"chief-runtime: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
