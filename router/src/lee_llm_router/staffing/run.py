@@ -151,6 +151,7 @@ from lee_llm_router.providers.pi_cli import capture_usage as capture_pi_usage
 from lee_llm_router.staffing.catalog import Route as StaffingRoute
 from lee_llm_router.staffing.catalog import StaffingCatalog
 from lee_llm_router.staffing.eligibility import (
+    _SAME_FAMILY_REVIEW_DISCLOSURE,
     EligibilityPrice,
     EligibilityRow,
     StaffingEligibilityError,
@@ -871,20 +872,22 @@ def selection_record(outcome: SelectionOutcome) -> dict[str, Any]:
 def _is_role_class_capability_reason(reason: str) -> bool:
     """Whether one explain reason is worker role/class capability policy.
 
-    Exactly the three checks that must never be imposed on an attested
+    The worker-selection checks that must never be imposed on an attested
     supervisor identity: the D188 ``role_scoped`` denial (reason
     ``role_scoped: <class> denied for <model>``) and the review/judge
     author-family ``independence`` exclusion (Astra final-review finding 5),
     plus ``never_automatic`` (D223, Lee 2026-09-12: never-automatic governs
     *selection* of a worker, not the *identity* of the supervisor attesting a
     run — Fable/Opus/Luna-Max supervisors were refused as
-    ``supervisor_route_unattested`` throughout Phase 5). Every other governed
-    reason — status, channel membership, harness lock, availability veto,
-    terms/pricing availability — still refuses an attestation.
+    ``supervisor_route_unattested`` throughout Phase 5). The permitted
+    same-family review disclosure is informational, not an identity veto.
+    Every other governed reason — status, channel membership, harness lock,
+    availability veto, terms/pricing availability — still refuses an attestation.
     """
     return (
         reason == "independence"
         or reason == "never_automatic"
+        or reason == _SAME_FAMILY_REVIEW_DISCLOSURE
         or reason.startswith("role_scoped:")
     )
 
@@ -910,8 +913,9 @@ def _resolve_supervisor_route(
       channel membership, harness lock, availability headroom veto,
       unavailable dated terms or pricing. The only reasons *not* imposed on
       the supervisor are the worker-selection policies (``role_scoped``, the
-      review/judge ``independence`` author-family exclusion, and
-      ``never_automatic`` — D223): attesting one's identity is not selecting
+      review/judge ``independence`` author-family exclusion,
+      ``never_automatic`` — D223, and the informational same-family review
+      disclosure): attesting one's identity is not selecting
       a worker, and the supervisor is never a review candidate.
 
     Any refusal raises :class:`RunSelectionError` (exit 3) before anything
