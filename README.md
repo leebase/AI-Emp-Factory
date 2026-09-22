@@ -81,6 +81,6 @@ relocation tokens unresolved, so the tree works from wherever you cloned it.
 | `stage-workers` | `/home/lee/projects/auto-orch` | `8f40e2ba2a9081a257a1769fa52f61815203fc86 (see lock)` | 4 |
 | `rate-table` | `/home/lee/projects/agent-orch` | `fbedba033dc79e91e0698b5c8a788c85e5b1be2d` | 1 |
 
-Built 2026-09-22T21:49:30Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
+Built 2026-09-22T22:01:32Z by `scripts/build_distribution.sh` from `scripts/manifest.distribution.json` (components: revision).
 `user/` is owned by the user: the builder seeds it only when it is absent and
 never overwrites anything inside it.

@@ -297,6 +297,7 @@ def generated(root: Path, rate_source: Path) -> dict[Path, str]:
              worker / "reviewer/.claude/settings.json": _settings("reviewer", root),
              root / ".claude/commands/supervise.md": _shim(root),
              root / ".claude/settings.local.json": json.dumps({"permissions": {"allow": [
+                 "Skill(supervise *)",
                  "Bash(./.venv/bin/python -m unittest:*)", "Bash(.venv/bin/python -m unittest:*)",
                  "Bash(./.venv/bin/python -m pytest:*)", "Bash(.venv/bin/python -m pytest:*)",
                  f"Bash({root / '.venv/bin/python'} -m unittest:*)", f"Bash({root / '.venv/bin/python'} -m pytest:*)"

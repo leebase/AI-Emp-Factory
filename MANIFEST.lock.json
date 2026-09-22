@@ -3,7 +3,7 @@
   "manifest_version": 2,
   "manifest": "scripts/manifest.distribution.json",
   "builder": "scripts/build_distribution.sh",
-  "built_at_utc": "2026-09-22T21:49:30Z",
+  "built_at_utc": "2026-09-22T22:01:32Z",
   "dest": "/tmp/bonnie-ready-20260922/candidate",
   "built_from": "revision",
   "user_data_boundary": "user/",
@@ -130,13 +130,13 @@
         "kind": "go-linux-amd64",
         "source_commit": "1f491966e5bdc98203e65d998a363f39fff650f2",
         "source_version": "agent-board@1f491966e5bdc98203e65d998a363f39fff650f2",
-        "working_directory": "/tmp/build_distribution.ovnGDU/board",
+        "working_directory": "/tmp/build_distribution.yaHv3e/board",
         "command": [
           "env",
           "CGO_ENABLED=0",
           "GOOS=linux",
           "GOARCH=amd64",
-          "GOCACHE=/tmp/build_distribution.ovnGDU/go-build-cache",
+          "GOCACHE=/tmp/build_distribution.yaHv3e/go-build-cache",
           "/tmp/agent-board-go-G6B22W/go/bin/go",
           "build",
           "-buildvcs=false",
@@ -356,7 +356,7 @@
       {
         "source": "chief_runtime.py",
         "destination": "bin/chief-runtime",
-        "sha256": "da9a703ff43346fefe6279bd643b920d5bb0ec140be5e3c3488073a086531950",
+        "sha256": "2f50b97187a5c6df729c1d076dbb26fa06c351cf4700f31c92045a9347cc7eab",
         "executable": true
       },
       {
